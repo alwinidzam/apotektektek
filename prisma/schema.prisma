@@ -1,0 +1,240 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// -------------------------------------------------------------
+// ENUMS
+// -------------------------------------------------------------
+enum DrugClass {
+  BEBAS
+  BEBAS_TERBATAS
+  KERAS
+  PREKURSOR
+  OOT
+  PSIKOTROPIKA
+  NARKOTIKA
+}
+
+enum PrescriptionStatus {
+  DRAFT
+  VERIFIED
+  DISPENSED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  QRIS_DYNAMIC
+  EDC_DEBIT
+  EDC_CREDIT
+  INSURANCE_BPJS
+  PIUTANG
+  SPLIT
+}
+
+enum SPType {
+  REGULER
+  PREKURSOR
+  OOT
+  PSIKOTROPIKA
+  NARKOTIKA
+}
+
+// -------------------------------------------------------------
+// OUTLET & USERS
+// -------------------------------------------------------------
+model Outlet {
+  id           String        @id @default(uuid())
+  code         String        @unique
+  name         String
+  address      String
+  phone        String
+  sia_number   String
+  sipa_apj     String
+  apj_name     String
+  products     ProductStock[]
+  transactions Transaction[]
+  posRegisters POSRegister[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model User {
+  id           String        @id @default(uuid())
+  username     String        @unique
+  email        String        @unique
+  passwordHash String
+  fullName     String
+  role         String        // SUPERADMIN, APJ, TTK, KASIR, GUDANG
+  sipaNumber   String?
+  transactions Transaction[]
+  createdAt    DateTime      @default(now())
+}
+
+// -------------------------------------------------------------
+// PRODUCTS & BATCHES (FEFO ENGINE)
+// -------------------------------------------------------------
+model Product {
+  id            String         @id @default(uuid())
+  kfaCode       String?        @unique // Kamus Farmasi Alkes (9-digit SatuSehat)
+  barcode       String         @unique
+  name          String
+  genericName   String?
+  manufacturer  String?
+  drugClass     DrugClass      @default(BEBAS)
+  isHighAlert   Boolean        @default(false)
+  isLasa        Boolean        @default(false)
+  tallManName   String?
+  baseUnit      String         // "TABLET", "BOTOL", "TUBE"
+  minStockAlert Int            @default(10)
+  maxStockAlert Int            @default(500)
+  batches       ProductBatch[]
+  stocks        ProductStock[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model ProductBatch {
+  id            String         @id @default(uuid())
+  productId     String
+  product       Product        @relation(fields: [productId], references: [id])
+  batchNumber   String
+  expiryDate    DateTime
+  purchasePrice Decimal        @db.Decimal(12, 2)
+  sellingPrice  Decimal        @db.Decimal(12, 2)
+  currentStock  Int            @default(0)
+  reservedStock Int            @default(0)
+  locationRack  String         @default("RAK-A1")
+  txItems       TransactionItem[]
+  createdAt     DateTime       @default(now())
+
+  @@index([productId, expiryDate])
+  @@index([batchNumber])
+}
+
+model ProductStock {
+  id          String   @id @default(uuid())
+  outletId    String
+  productId   String
+  totalStock  Int      @default(0)
+  outlet      Outlet   @relation(fields: [outletId], references: [id])
+  product     Product  @relation(fields: [productId], references: [id])
+
+  @@unique([outletId, productId])
+}
+
+// -------------------------------------------------------------
+// PRESCRIPTION & COMPOUNDING (RACIKAN ENGINE)
+// -------------------------------------------------------------
+model Patient {
+  id            String         @id @default(uuid())
+  nik           String?        @unique
+  ihsNumber     String?        // SatuSehat IHS
+  fullName      String
+  dateOfBirth   DateTime
+  gender        String
+  phone         String?
+  allergies     String[]       @default([])
+  prescriptions Prescription[]
+  transactions  Transaction[]
+  createdAt     DateTime       @default(now())
+}
+
+model Doctor {
+  id             String         @id @default(uuid())
+  name           String
+  sipNumber      String
+  specialization String?
+  prescriptions  Prescription[]
+}
+
+model Prescription {
+  id                 String             @id @default(uuid())
+  prescriptionNumber String             @unique
+  patientId          String
+  doctorId           String?
+  patient            Patient            @relation(fields: [patientId], references: [id])
+  doctor             Doctor?            @relation(fields: [doctorId], references: [id])
+  status             PrescriptionStatus @default(DRAFT)
+  tuslahTotal        Decimal            @default(0) @db.Decimal(10, 2)
+  embalaseTotal      Decimal            @default(0) @db.Decimal(10, 2)
+  items              PrescriptionItem[]
+  satusehatMedReqId  String?
+  createdAt          DateTime           @default(now())
+}
+
+model PrescriptionItem {
+  id             String        @id @default(uuid())
+  prescriptionId String
+  prescription   Prescription  @relation(fields: [prescriptionId], references: [id])
+  isCompounded   Boolean       @default(false)
+  compoundName   String?
+  compoundMethod String?       // "DTD" atau "NON_DTD"
+  dosageSigna    String
+  quantityPacket Int           @default(1)
+  ingredients    CompoundIngredient[]
+}
+
+model CompoundIngredient {
+  id                 String           @id @default(uuid())
+  prescriptionItemId String
+  prescriptionItem   PrescriptionItem @relation(fields: [prescriptionItemId], references: [id])
+  productId          String
+  dosePerPacketMg    Decimal?         @db.Decimal(10, 2)
+  totalQuantityBase  Int
+}
+
+// -------------------------------------------------------------
+// TRANSACTIONS & POS ENGINE
+// -------------------------------------------------------------
+model POSRegister {
+  id           String        @id @default(uuid())
+  outletId     String
+  outlet       Outlet        @relation(fields: [outletId], references: [id])
+  terminalName String
+  openingCash  Decimal       @db.Decimal(12, 2)
+  closingCash  Decimal?      @db.Decimal(12, 2)
+  openedAt     DateTime      @default(now())
+  closedAt     DateTime?
+  transactions Transaction[]
+}
+
+model Transaction {
+  id                  String            @id @default(uuid())
+  invoiceNumber       String            @unique
+  outletId            String
+  cashierId           String
+  registerId          String?
+  patientId           String?
+  outlet              Outlet            @relation(fields: [outletId], references: [id])
+  cashier             User              @relation(fields: [cashierId], references: [id])
+  register            POSRegister?      @relation(fields: [registerId], references: [id])
+  patient             Patient?          @relation(fields: [patientId], references: [id])
+  subtotal            Decimal           @db.Decimal(12, 2)
+  tuslahTotal         Decimal           @default(0) @db.Decimal(10, 2)
+  embalaseTotal       Decimal           @default(0) @db.Decimal(10, 2)
+  roundingAmount      Decimal           @default(0) @db.Decimal(8, 2)
+  grandTotal          Decimal           @db.Decimal(12, 2)
+  paymentMethod       PaymentMethod
+  paidAmount          Decimal           @db.Decimal(12, 2)
+  changeAmount        Decimal           @default(0) @db.Decimal(12, 2)
+  satusehatDispenseId String?
+  items               TransactionItem[]
+  createdAt           DateTime          @default(now())
+}
+
+model TransactionItem {
+  id            String       @id @default(uuid())
+  transactionId String
+  batchId       String
+  transaction   Transaction  @relation(fields: [transactionId], references: [id])
+  batch         ProductBatch @relation(fields: [batchId], references: [id])
+  quantity      Int
+  unitPrice     Decimal      @db.Decimal(12, 2)
+  totalPrice    Decimal      @db.Decimal(12, 2)
+}

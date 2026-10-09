@@ -1,0 +1,1083 @@
+rules_version = '2';
+
+// ============================================================================
+// Cloud Firestore Security Rules: Apotek Kerso Waras (Kedung, Jepara)
+// ============================================================================
+// Primary Bootstrap Admin: alwinizam0405@gmail.com
+// System Architecture: Healthcare & Pharmacy POS & Regulatory Compliance
+// Security Invariants:
+//   - Default Deny on all collections.
+//   - Strict Separation of Duties (SoD) & Role-Based Access Control (RBAC).
+//   - Domain Validator Pattern applied on BOTH create and update operations.
+//   - Zero Trust: No client-side privilege escalation; authority derived solely
+//     from Firebase Auth token claims, bootstrap email, or verified user doc.
+//   - Confidentiality: Product acquisition cost (HPP / HNA) & financial reports
+//     are strictly blocked from Cashiers (KARYAWAN_KASIR) and Apoteker.
+//   - Integrity & Immutability: Transactions, regulatory narcotics logs (SIPNAP),
+//     and activity audit logs are strictly append-only (no update, no delete).
+//   - Resource Exhaustion / DoS Prevention: Explicit bounds on all strings,
+//     numbers, and list sizes.
+// ============================================================================
+
+// ============================================================================
+// Assumed Data Models
+// ============================================================================
+//
+// 1. /users/{uid}
+//    Staff accounts with role and active status.
+//    Fields:
+//      - id: string (matches document uid, required, immutable)
+//      - name: string (2..100 chars, required)
+//      - email: string (valid email format, required, immutable on self-update)
+//      - role: string ('SUPER_ADMIN'|'OWNER'|'KARYAWAN_APOTEKER'|'KARYAWAN_KASIR', required, immutable on self-update)
+//      - title: string (2..100 chars, required)
+//      - avatar: string (1..50 chars, required)
+//      - status: string ('ACTIVE'|'SUSPENDED', required, immutable on self-update)
+//      - sipaNumber: string (optional, 0..100 chars)
+//      - phone: string (optional, 0..25 chars)
+//      - pinHash: string (optional, 0..128 chars, immutable on self-update)
+//      - createdAt: timestamp (required, immutable)
+//      - updatedAt: timestamp (required)
+//
+// 2. /products/{productId}
+//    Public & staff product catalog (selling prices, barcodes, batches).
+//    Confidential HPP is segregated into /product_costs to prevent cashier leaks.
+//    Fields:
+//      - id: string (matches productId, required, immutable)
+//      - barcode: string (1..64 chars, required)
+//      - kfaCode: string (optional, 0..32 chars)
+//      - name: string (1..150 chars, required)
+//      - genericName: string (optional, 0..150 chars)
+//      - manufacturer: string (optional, 0..150 chars)
+//      - drugClass: string ('BEBAS'|'BEBAS_TERBATAS'|'KERAS'|'PREKURSOR'|'OOT'|'PSIKOTROPIKA'|'NARKOTIKA', required)
+//      - isHighAlert: bool (required)
+//      - isLasa: bool (required)
+//      - tallManName: string (optional, 0..150 chars)
+//      - baseUnit: string (1..32 chars, required)
+//      - sellingPrice: number (>= 0, required)
+//      - markupPercent: number (optional, >= 0)
+//      - bpomNie: string (optional, 0..64 chars)
+//      - storageCondition: string (optional, 'ROOM_TEMP'|'COOL'|'CHILLER_2_8'|'FREEZER')
+//      - shelfLocation: string (optional, 0..64 chars)
+//      - het: number (optional, >= 0)
+//      - minStockAlert: number (>= 0, required)
+//      - maxStockAlert: number (>= 0, required)
+//      - unitConversions: list (optional, max 10 elements)
+//      - batches: list (optional, max 50 elements)
+//      - contraindications: list (optional, max 20 strings)
+//      - maxDailyDoseAdultMg: number (optional, >= 0)
+//      - description: string (optional, 0..1000 chars)
+//      - createdAt: timestamp (required, immutable)
+//      - updatedAt: timestamp (required)
+//      - updatedBy: string (1..64 chars, required)
+//
+// 3. /product_costs/{productId}
+//    Confidential acquisition costs (HPP, purchasePriceHNA, supplier).
+//    Restricted EXCLUSIVELY to OWNER (PSA) and SUPER_ADMIN.
+//    Fields:
+//      - productId: string (matches document id, required, immutable)
+//      - hpp: number (>= 0, required)
+//      - purchasePriceHNA: number (>= 0, required)
+//      - supplierId: string (optional, 0..64 chars)
+//      - supplierName: string (optional, 0..150 chars)
+//      - marginPercent: number (optional)
+//      - discountPercent: number (optional, 0..100)
+//      - taxPercent: number (optional, 0..100)
+//      - lastPurchaseDate: timestamp (optional)
+//      - updatedAt: timestamp (required)
+//      - updatedBy: string (1..64 chars, required)
+//
+// 4. /transactions/{transactionId}
+//    POS sales receipts. Append-only financial record.
+//    Fields:
+//      - id: string (matches transactionId, required)
+//      - invoiceNumber: string (3..64 chars, required)
+//      - timestamp: timestamp (required)
+//      - cashierId: string (matches request.auth.uid, required)
+//      - cashierName: string (2..100 chars, required)
+//      - customerName: string (1..100 chars, required)
+//      - customerPhone: string (optional, 0..25 chars)
+//      - doctorName: string (optional, 0..100 chars)
+//      - prescriptionNumber: string (optional, 0..64 chars)
+//      - items: list (1..100 maps, required)
+//      - subtotal: number (>= 0, required)
+//      - tuslahTotal: number (>= 0, required)
+//      - embalaseTotal: number (>= 0, required)
+//      - roundingAmount: number (required)
+//      - grandTotal: number (>= 0, required)
+//      - paymentMethod: string ('CASH'|'QRIS_DYNAMIC'|'EDC_DEBIT'|'EDC_CREDIT'|'INSURANCE_BPJS'|'PIUTANG'|'SPLIT', required)
+//      - paidAmount: number (>= 0, required)
+//      - changeAmount: number (>= 0, required)
+//      - shiftId: string (optional, 0..64 chars)
+//      - satusehatDispenseId: string (optional, 0..64 chars)
+//      - isSynced: bool (optional)
+//      - createdAt: timestamp (required)
+//
+// 5. /shifts/{shiftId}
+//    Cashier shifts, X-reports, Z-reports, discrepancy settlement.
+//    Fields:
+//      - id: string (matches shiftId, required, immutable)
+//      - shiftNumber: int (1, 2, or 3, required)
+//      - terminalId: string (1..32 chars, required)
+//      - cashierId: string (required, immutable)
+//      - cashierName: string (2..100 chars, required)
+//      - startTime: timestamp (required, immutable)
+//      - endTime: timestamp (optional)
+//      - status: string ('OPEN'|'CLOSED', required)
+//      - openingCash: number (>= 0, required, immutable)
+//      - cashSalesTotal: number (>= 0, required)
+//      - qrisSalesTotal: number (>= 0, required)
+//      - edcSalesTotal: number (>= 0, required)
+//      - cashInTotal: number (>= 0, required)
+//      - cashOutTotal: number (>= 0, required)
+//      - refundTotal: number (optional, >= 0)
+//      - totalTransactionsCount: int (>= 0, required)
+//      - actualCashCount: number (optional, >= 0)
+//      - expectedCashTotal: number (optional, >= 0)
+//      - cashDifference: number (optional)
+//      - closingNote: string (optional, 0..500 chars)
+//      - denominationCount: map (optional)
+//      - pettyCashMovements: list (optional, max 50 items)
+//      - xReportsCount: int (optional, >= 0)
+//      - lastXReportTime: timestamp (optional)
+//      - isAuditedByOwner: bool (required)
+//      - auditStatus: string (optional, 'PENDING'|'APPROVED'|'DISCREPANCY_FLAGGED')
+//      - auditNote: string (optional, 0..500 chars)
+//      - auditedBy: string (optional, 0..64 chars)
+//      - auditedAt: timestamp (optional)
+//      - discrepancyCategory: string (optional, 0..64 chars)
+//      - discrepancyReasonText: string (optional, 0..500 chars)
+//      - supervisorAuth: map (optional)
+//      - settlementAction: string (optional, 'APPROVED_BY_OWNER'|'CASHIER_LIABILITY'|'PHARMACY_ABSORBED'|'PENDING_INVESTIGATION')
+//      - createdAt: timestamp (required, immutable)
+//      - updatedAt: timestamp (required)
+//
+// 6. /petty_cash_movements/{movementId}
+//    Petty cash cash-in / cash-out ledger.
+//    Fields:
+//      - id: string (matches movementId, required, immutable)
+//      - shiftId: string (1..64 chars, required)
+//      - timestamp: timestamp (required)
+//      - type: string ('PAID_IN'|'PAID_OUT', required)
+//      - category: string ('COLD_CHAIN_ICE'|'RECEIPT_PAPER'|'COURIER_FEE'|'CASH_FLOAT_TOPUP'|'CLEANING_SUPPLIES'|'EMERGENCY_EXPENSE'|'OTHER', required)
+//      - categoryLabel: string (optional, 0..100 chars)
+//      - amount: number (> 0, required)
+//      - reason: string (3..300 chars, required)
+//      - recipientOrSource: string (2..150 chars, required)
+//      - recordedBy: string (2..100 chars, required)
+//      - recordedByUid: string (matches request.auth.uid on create, required, immutable)
+//      - createdAt: timestamp (required, immutable)
+//      - updatedAt: timestamp (optional)
+//
+// 7. /compounding_recipes/{recipeId}
+//    Formulations for puyer and kapsul racikan.
+//    Fields:
+//      - id: string (matches recipeId, required, immutable)
+//      - recipeName: string (2..150 chars, required)
+//      - method: string ('DTD'|'NON_DTD', required)
+//      - packetCount: int (> 0 and <= 500, required)
+//      - dosageSigna: string (2..100 chars, required)
+//      - patientName: string (1..100 chars, required)
+//      - patientAgeYears: number (optional, 0..150)
+//      - patientWeightKg: number (optional, 0..300)
+//      - ingredients: list (1..30 maps, required)
+//      - packagingType: string ('KAPSUL'|'PUYER_PERKAMEN'|'POT_SALEP'|'BOTOL_SIRUP', required)
+//      - packagingCost: number (>= 0, required)
+//      - tuslahFee: number (>= 0, required)
+//      - subtotalIngredients: number (>= 0, required)
+//      - grandTotal: number (>= 0, required)
+//      - beyondUseDate: timestamp (required)
+//      - notes: string (optional, 0..500 chars)
+//      - prescribedBy: string (optional, 0..100 chars)
+//      - compoundedBy: string (2..100 chars, required)
+//      - compoundedByUid: string (1..64 chars, required)
+//      - createdAt: timestamp (required, immutable)
+//      - updatedAt: timestamp (required)
+//
+// 8. /regulatory_narcotics_log/{logId}
+//    SIPNAP & BPOM controlled drug ledger. Append-only regulatory log.
+//    Fields:
+//      - id: string (matches logId, required)
+//      - kfaCode: string (optional, 0..32 chars)
+//      - productName: string (2..150 chars, required)
+//      - drugClass: string ('NARKOTIKA'|'PSIKOTROPIKA'|'PREKURSOR'|'OOT', required)
+//      - dosageForm: string (1..50 chars, required)
+//      - unit: string (1..32 chars, required)
+//      - batchNumber: string (1..64 chars, required)
+//      - initialStock: number (>= 0, required)
+//      - incomingQty: number (>= 0, required)
+//      - incomingInvoiceNo: string (optional, 0..64 chars)
+//      - incomingPbfName: string (optional, 0..150 chars)
+//      - outgoingPrescriptionQty: number (>= 0, required)
+//      - prescriptionNo: string (optional, 0..64 chars)
+//      - prescriptionDate: timestamp (optional)
+//      - doctorName: string (optional, 0..100 chars)
+//      - doctorSip: string (optional, 0..100 chars)
+//      - patientName: string (optional, 0..100 chars)
+//      - patientAddress: string (optional, 0..255 chars)
+//      - destructionQty: number (optional, >= 0)
+//      - finalStock: number (>= 0, required)
+//      - reportedByUid: string (matches request.auth.uid, required)
+//      - apjSipa: string (5..100 chars, required)
+//      - timestamp: timestamp (required)
+//      - createdAt: timestamp (required)
+//
+// 9. /financial_reports/{reportId}
+//    P&L, EBITDA, Gross Margin valuations. Restricted to OWNER & SUPER_ADMIN.
+//    Fields:
+//      - id: string (matches reportId, required, immutable)
+//      - reportType: string ('DAILY_CLOSING'|'MONTHLY_PNL'|'EBITDA'|'HPP_VALUATION'|'GROSS_MARGIN', required)
+//      - periodStart: timestamp (required)
+//      - periodEnd: timestamp (required, >= periodStart)
+//      - totalRevenue: number (required)
+//      - totalHpp: number (required)
+//      - grossProfit: number (required)
+//      - operatingExpenses: number (optional)
+//      - ebitda: number (optional)
+//      - netProfit: number (optional)
+//      - generatedByUid: string (1..64 chars, required)
+//      - notes: string (optional, 0..1000 chars)
+//      - breakdown: map (optional)
+//      - createdAt: timestamp (required, immutable)
+//      - updatedAt: timestamp (required)
+//
+// 10. /activity_audit_logs/{logId}
+//     Append-only system security & activity audit trail.
+//     Fields:
+//       - id: string (matches logId, required)
+//       - timestamp: timestamp (required)
+//       - actorUid: string (matches request.auth.uid, required)
+//       - actorName: string (2..100 chars, required)
+//       - actorRole: string (2..50 chars, required)
+//       - action: string (2..100 chars, required)
+//       - resource: string (2..100 chars, required)
+//       - resourceId: string (optional, 0..100 chars)
+//       - details: map (optional)
+//       - ipAddress: string (optional, 0..64 chars)
+//       - userAgent: string (optional, 0..255 chars)
+//       - createdAt: timestamp (required)
+//
+// 11. /system_settings/{settingId}
+//     Pharmacy global configuration (SIA, SIPA, SatuSehat, receipts).
+//
+// 12. /sp_orders/{orderId}
+//     Surat Pesanan Obat (Reguler, Prekursor, OOT, Narkotika, Psikotropika).
+//
+// 13. /held_bills/{billId}
+//     Temporary parked cart bills on POS terminal.
+// ============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ========================================================================
+    // Helper Functions: Authentication, Identity & RBAC
+    // ========================================================================
+
+    // Check if user is authenticated with Firebase Auth
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Check if user is accessing their own document path
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Verify document UID matches the caller on create
+    function uidUnchanged() {
+      return !('uid' in request.resource.data) ||
+        request.resource.data.uid == request.auth.uid;
+    }
+
+    // Ensure UID field is not modified on update
+    function uidNotModified() {
+      return !('uid' in request.resource.data) ||
+        request.resource.data.uid == resource.data.uid;
+    }
+
+    // Primary bootstrap administrator account (Enforces email verification)
+    function isBootstrapAdmin() {
+      return isAuthenticated() &&
+        request.auth.token.email == 'alwinizam0405@gmail.com' &&
+        request.auth.token.email_verified == true;
+    }
+
+    // Check if active user document exists in /users/{uid}
+    function hasUserDoc() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    // Retrieve active user document data
+    function getUserDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    // SUPER_ADMIN: Full root control of settings, users, and audit logs
+    function isSuperAdmin() {
+      return isBootstrapAdmin() || (
+        isAuthenticated() && (
+          request.auth.token.role == 'SUPER_ADMIN' ||
+          (hasUserDoc() &&
+           getUserDoc().role == 'SUPER_ADMIN' &&
+           getUserDoc().status != 'SUSPENDED')
+        )
+      );
+    }
+
+    // OWNER (PSA): Full financial suite, HPP, users, reports, and shifts
+    function isOwnerRole() {
+      return isSuperAdmin() || (
+        isAuthenticated() && (
+          request.auth.token.role == 'OWNER' ||
+          (hasUserDoc() &&
+           getUserDoc().role == 'OWNER' &&
+           getUserDoc().status != 'SUSPENDED')
+        )
+      );
+    }
+
+    // KARYAWAN_APOTEKER (APJ): Clinical recipe compounding, catalogs, narcotics log
+    function isApotekerRole() {
+      return isOwnerRole() || (
+        isAuthenticated() && (
+          request.auth.token.role == 'KARYAWAN_APOTEKER' ||
+          (hasUserDoc() &&
+           getUserDoc().role == 'KARYAWAN_APOTEKER' &&
+           getUserDoc().status != 'SUSPENDED')
+        )
+      );
+    }
+
+    // KARYAWAN_KASIR: POS sales, shifts, petty cash. (Blocked from HPP & profit)
+    function isKasirRole() {
+      return isAuthenticated() && (
+        request.auth.token.role == 'KARYAWAN_KASIR' ||
+        (hasUserDoc() &&
+         getUserDoc().role == 'KARYAWAN_KASIR' &&
+         getUserDoc().status != 'SUSPENDED')
+      );
+    }
+
+    // Any active non-suspended staff member
+    function isActiveStaff() {
+      return isSuperAdmin() || (
+        isAuthenticated() && (
+          (request.auth.token.role in ['SUPER_ADMIN', 'OWNER', 'KARYAWAN_APOTEKER', 'KARYAWAN_KASIR']) ||
+          (hasUserDoc() &&
+           getUserDoc().role in ['SUPER_ADMIN', 'OWNER', 'KARYAWAN_APOTEKER', 'KARYAWAN_KASIR'] &&
+           getUserDoc().status != 'SUSPENDED')
+        )
+      );
+    }
+
+    // ========================================================================
+    // Helper Functions: Data Validation & Integrity
+    // ========================================================================
+
+    // Validate required fields exist in request payload
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    // Prevent schema pollution by restricting to exact allowed fields
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // Enforce immutable fields during update operations
+    function areImmutableFieldsUnchanged(fields) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
+    }
+
+    // Validate string length within bounds
+    function validStringLength(field, minLen, maxLen) {
+      return request.resource.data[field] is string &&
+        request.resource.data[field].size() >= minLen &&
+        request.resource.data[field].size() <= maxLen;
+    }
+
+    // Validate optional string length if field is present
+    function isValidOptionalString(field, minLen, maxLen) {
+      return !(field in request.resource.data) ||
+        (request.resource.data[field] is string &&
+         request.resource.data[field].size() >= minLen &&
+         request.resource.data[field].size() <= maxLen);
+    }
+
+    // RFC 5322 compliant email regex validation
+    function isValidEmail(email) {
+      return email is string &&
+        email.matches('^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$');
+    }
+
+    // Validate list type and enforce maximum size to prevent DoS
+    function isValidList(listVal, maxSize) {
+      return listVal is list && listVal.size() <= maxSize;
+    }
+
+    // Validate recent timestamp within 5 minutes tolerance
+    function isRecent(time) {
+      return time is timestamp &&
+        time > request.time - duration.value(5, 'm') &&
+        time <= request.time + duration.value(1, 'm');
+    }
+
+    // ========================================================================
+    // Domain Validators (Applied on BOTH create and update)
+    // ========================================================================
+
+    // 1. Validator: User Profiles
+    function isValidUser(data, uid) {
+      let allowed = ['id', 'name', 'email', 'role', 'title', 'avatar', 'sipaNumber', 'status', 'phone', 'pinHash', 'createdAt', 'updatedAt'];
+      let required = ['id', 'name', 'email', 'role', 'title', 'avatar', 'status', 'createdAt', 'updatedAt'];
+
+      return data.keys().hasAll(required) &&
+        data.keys().hasOnly(allowed) &&
+        data.id is string && data.id == uid &&
+        data.name is string && data.name.size() >= 2 && data.name.size() <= 100 &&
+        data.email is string && isValidEmail(data.email) && data.email.size() <= 100 &&
+        data.role in ['SUPER_ADMIN', 'OWNER', 'KARYAWAN_APOTEKER', 'KARYAWAN_KASIR'] &&
+        data.title is string && data.title.size() >= 2 && data.title.size() <= 100 &&
+        data.avatar is string && data.avatar.size() >= 1 && data.avatar.size() <= 50 &&
+        data.status in ['ACTIVE', 'SUSPENDED'] &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp &&
+        (!('sipaNumber' in data) || (data.sipaNumber is string && data.sipaNumber.size() <= 100)) &&
+        (!('phone' in data) || (data.phone is string && data.phone.size() <= 25)) &&
+        (!('pinHash' in data) || (data.pinHash is string && data.pinHash.size() <= 128));
+    }
+
+    // 2. Validator: Product Catalog (Public/Staff Facing - No HPP)
+    function isValidProduct(data, productId) {
+      let allowed = [
+        'id', 'barcode', 'kfaCode', 'name', 'genericName', 'manufacturer',
+        'drugClass', 'isHighAlert', 'isLasa', 'tallManName', 'baseUnit',
+        'sellingPrice', 'markupPercent', 'bpomNie', 'storageCondition',
+        'shelfLocation', 'het', 'minStockAlert', 'maxStockAlert',
+        'unitConversions', 'batches', 'contraindications',
+        'maxDailyDoseAdultMg', 'description', 'createdAt', 'updatedAt', 'updatedBy'
+      ];
+      let required = [
+        'id', 'barcode', 'name', 'drugClass', 'isHighAlert', 'isLasa',
+        'baseUnit', 'sellingPrice', 'minStockAlert', 'maxStockAlert',
+        'createdAt', 'updatedAt', 'updatedBy'
+      ];
+
+      return data.keys().hasAll(required) &&
+        data.keys().hasOnly(allowed) &&
+        data.id is string && data.id == productId &&
+        data.barcode is string && data.barcode.size() >= 1 && data.barcode.size() <= 64 &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 150 &&
+        data.drugClass in ['BEBAS', 'BEBAS_TERBATAS', 'KERAS', 'PREKURSOR', 'OOT', 'PSIKOTROPIKA', 'NARKOTIKA'] &&
+        data.isHighAlert is bool &&
+        data.isLasa is bool &&
+        data.baseUnit is string && data.baseUnit.size() >= 1 && data.baseUnit.size() <= 32 &&
+        data.sellingPrice is number && data.sellingPrice >= 0 &&
+        data.minStockAlert is number && data.minStockAlert >= 0 &&
+        data.maxStockAlert is number && data.maxStockAlert >= data.minStockAlert &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp &&
+        data.updatedBy is string && data.updatedBy.size() >= 1 && data.updatedBy.size() <= 64 &&
+        (!('kfaCode' in data) || (data.kfaCode is string && data.kfaCode.size() <= 32)) &&
+        (!('genericName' in data) || (data.genericName is string && data.genericName.size() <= 150)) &&
+        (!('manufacturer' in data) || (data.manufacturer is string && data.manufacturer.size() <= 150)) &&
+        (!('tallManName' in data) || (data.tallManName is string && data.tallManName.size() <= 150)) &&
+        (!('bpomNie' in data) || (data.bpomNie is string && data.bpomNie.size() <= 64)) &&
+        (!('storageCondition' in data) || (data.storageCondition in ['ROOM_TEMP', 'COOL', 'CHILLER_2_8', 'FREEZER'])) &&
+        (!('shelfLocation' in data) || (data.shelfLocation is string && data.shelfLocation.size() <= 64)) &&
+        (!('het' in data) || (data.het is number && data.het >= 0)) &&
+        (!('markupPercent' in data) || (data.markupPercent is number && data.markupPercent >= 0)) &&
+        (!('maxDailyDoseAdultMg' in data) || (data.maxDailyDoseAdultMg is number && data.maxDailyDoseAdultMg >= 0)) &&
+        (!('description' in data) || (data.description is string && data.description.size() <= 1000)) &&
+        (!('unitConversions' in data) || (data.unitConversions is list && data.unitConversions.size() <= 10)) &&
+        (!('batches' in data) || (data.batches is list && data.batches.size() <= 50)) &&
+        (!('contraindications' in data) || (data.contraindications is list && data.contraindications.size() <= 20));
+    }
+
+    // 3. Validator: Confidential Product Costs (HPP / HNA Acquisition Cost)
+    function isValidProductCost(data, productId) {
+      let allowed = [
+        'productId', 'hpp', 'purchasePriceHNA', 'supplierId', 'supplierName',
+        'marginPercent', 'discountPercent', 'taxPercent', 'lastPurchaseDate',
+        'updatedAt', 'updatedBy'
+      ];
+      let required = ['productId', 'hpp', 'purchasePriceHNA', 'updatedAt', 'updatedBy'];
+
+      return data.keys().hasAll(required) &&
+        data.keys().hasOnly(allowed) &&
+        data.productId is string && data.productId == productId &&
+        data.hpp is number && data.hpp >= 0 &&
+        data.purchasePriceHNA is number && data.purchasePriceHNA >= 0 &&
+        data.updatedAt is timestamp &&
+        data.updatedBy is string && data.updatedBy.size() >= 1 && data.updatedBy.size() <= 64 &&
+        (!('supplierId' in data) || (data.supplierId is string && data.supplierId.size() <= 64)) &&
+        (!('supplierName' in data) || (data.supplierName is string && data.supplierName.size() <= 150)) &&
+        (!('marginPercent' in data) || (data.marginPercent is number)) &&
+        (!('discountPercent' in data) || (data.discountPercent is number && data.discountPercent >= 0 && data.discountPercent <= 100)) &&
+        (!('taxPercent' in data) || (data.taxPercent is number && data.taxPercent >= 0 && data.taxPercent <= 100)) &&
+        (!('lastPurchaseDate' in data) || (data.lastPurchaseDate is timestamp));
+    }
+
+    // 4. Validator: POS Sales Transactions (Append-Only)
+    function isValidTransaction(data, transactionId) {
+      let allowed = [
+        'id', 'invoiceNumber', 'timestamp', 'cashierId', 'cashierName',
+        'customerName', 'customerPhone', 'doctorName', 'prescriptionNumber',
+        'items', 'subtotal', 'tuslahTotal', 'embalaseTotal', 'roundingAmount',
+        'grandTotal', 'paymentMethod', 'paidAmount', 'changeAmount', 'shiftId',
+        'satusehatDispenseId', 'isSynced', 'createdAt'
+      ];
+      let required = [
+        'id', 'invoiceNumber', 'timestamp', 'cashierId', 'cashierName',
+        'customerName', 'items', 'subtotal', 'tuslahTotal', 'embalaseTotal',
+        'roundingAmount', 'grandTotal', 'paymentMethod', 'paidAmount',
+        'changeAmount', 'createdAt'
+      ];
+
+      return data.keys().hasAll(required) &&
+        data.keys().hasOnly(allowed) &&
+        data.id is string && data.id == transactionId &&
+        data.invoiceNumber is string && data.invoiceNumber.size() >= 3 && data.invoiceNumber.size() <= 64 &&
+        data.timestamp is timestamp &&
+        data.cashierId is string && data.cashierId == request.auth.uid &&
+        data.cashierName is string && data.cashierName.size() >= 2 && data.cashierName.size() <= 100 &&
+        data.customerName is string && data.customerName.size() >= 1 && data.customerName.size() <= 100 &&
+        data.items is list && data.items.size() > 0 && data.items.size() <= 100 &&
+        data.subtotal is number && data.subtotal >= 0 &&
+        data.tuslahTotal is number && data.tuslahTotal >= 0 &&
+        data.embalaseTotal is number && data.embalaseTotal >= 0 &&
+        data.roundingAmount is number &&
+        data.grandTotal is number && data.grandTotal >= 0 &&
+        data.paymentMethod in ['CASH', 'QRIS_DYNAMIC', 'EDC_DEBIT', 'EDC_CREDIT', 'INSURANCE_BPJS', 'PIUTANG', 'SPLIT'] &&
+        data.paidAmount is number && data.paidAmount >= 0 &&
+        data.changeAmount is number && data.changeAmount >= 0 &&
+        data.createdAt is timestamp &&
+        (!('customerPhone' in data) || (data.customerPhone is string && data.customerPhone.size() <= 25)) &&
+        (!('doctorName' in data) || (data.doctorName is string && data.doctorName.size() <= 100)) &&
+        (!('prescriptionNumber' in data) || (data.prescriptionNumber is string && data.prescriptionNumber.size() <= 64)) &&
+        (!('shiftId' in data) || (data.shiftId is string && data.shiftId.size() <= 64)) &&
+        (!('satusehatDispenseId' in data) || (data.satusehatDispenseId is string && data.satusehatDispenseId.size() <= 64)) &&
+        (!('isSynced' in data) || (data.isSynced is bool));
+    }
+
+    // 5. Validator: Cashier Shifts (Blind Count & Discrepancies)
+    function isValidShift(data, shiftId) {
+      let allowed = [
+        'id', 'shiftNumber', 'terminalId', 'cashierId', 'cashierName',
+        'startTime', 'endTime', 'status', 'openingCash', 'cashSalesTotal',
+        'qrisSalesTotal', 'edcSalesTotal', 'cashInTotal', 'cashOutTotal',
+        'refundTotal', 'totalTransactionsCount', 'actualCashCount',
+        'expectedCashTotal', 'cashDifference', 'closingNote', 'denominationCount',
+        'pettyCashMovements', 'xReportsCount', 'lastXReportTime',
+        'isAuditedByOwner', 'auditStatus', 'auditNote', 'auditedBy', 'auditedAt',
+        'discrepancyCategory', 'discrepancyReasonText', 'supervisorAuth',
+        'settlementAction', 'createdAt', 'updatedAt'
+      ];
+      let required = [
+        'id', 'shiftNumber', 'terminalId', 'cashierId', 'cashierName',
+        'startTime', 'status', 'openingCash', 'cashSalesTotal', 'qrisSalesTotal',
+        'edcSalesTotal', 'cashInTotal', 'cashOutTotal', 'totalTransactionsCount',
+        'isAuditedByOwner', 'createdAt', 'updatedAt'
+      ];
+
+      return data.keys().hasAll(required) &&
+        data.keys().hasOnly(allowed) &&
+        data.id is string && data.id == shiftId &&
+        data.shiftNumber in [1, 2, 3] &&
+        data.terminalId is string && data.terminalId.size() >= 1 && data.terminalId.size() <= 32 &&
+        data.cashierId is string && data.cashierId.size() >= 1 && data.cashierId.size() <= 64 &&
+        data.cashierName is string && data.cashierName.size() >= 2 && data.cashierName.size() <= 100 &&
+        data.startTime is timestamp &&
+        data.status in ['OPEN', 'CLOSED'] &&
+        data.openingCash is number && data.openingCash >= 0 &&
+        data.cashSalesTotal is number && data.cashSalesTotal >= 0 &&
+        data.qrisSalesTotal is number && data.qrisSalesTotal >= 0 &&
+        data.edcSalesTotal is number && data.edcSalesTotal >= 0 &&
+        data.cashInTotal is number && data.cashInTotal >= 0 &&
+        data.cashOutTotal is number && data.cashOutTotal >= 0 &&
+        data.totalTransactionsCount is int && data.totalTransactionsCount >= 0 &&
+        data.isAuditedByOwner is bool &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp &&
+        (!('refundTotal' in data) || (data.refundTotal is number && data.refundTotal >= 0)) &&
+        (!('actualCashCount' in data) || (data.actualCashCount is number && data.actualCashCount >= 0)) &&
+        (!('expectedCashTotal' in data) || (data.expectedCashTotal is number && data.expectedCashTotal >= 0)) &&
+        (!('cashDifference' in data) || (data.cashDifference is number)) &&
+        (!('xReportsCount' in data) || (data.xReportsCount is int && data.xReportsCount >= 0)) &&
+        (!('endTime' in data) || (data.endTime is timestamp)) &&
+        (!('closingNote' in data) || (data.closingNote is string && data.closingNote.size() <= 500)) &&
+        (!('denominationCount' in data) || (data.denominationCount is map)) &&
+        (!('pettyCashMovements' in data) || (data.pettyCashMovements is list && data.pettyCashMovements.size() <= 50)) &&
+        (!('lastXReportTime' in data) || (data.lastXReportTime is timestamp)) &&
+        (!('auditStatus' in data) || (data.auditStatus in ['PENDING', 'APPROVED', 'DISCREPANCY_FLAGGED'])) &&
+        (!('auditNote' in data) || (data.auditNote is string && data.auditNote.size() <= 500)) &&
+        (!('auditedBy' in data) || (data.auditedBy is string && data.auditedBy.size() <= 64)) &&
+        (!('auditedAt' in data) || (data.auditedAt is timestamp)) &&
+        (!('discrepancyCategory' in data) || (data.discrepancyCategory is string && data.discrepancyCategory.size() <= 64)) &&
+        (!('discrepancyReasonText' in data) || (data.discrepancyReasonText is string && data.discrepancyReasonText.size() <= 500)) &&
+        (!('supervisorAuth' in data) || (data.supervisorAuth is map)) &&
+        (!('settlementAction' in data) || (data.settlementAction in ['APPROVED_BY_OWNER', 'CASHIER_LIABILITY', 'PHARMACY_ABSORBED', 'PENDING_INVESTIGATION']));
+    }
+
+    // 6. Validator: Petty Cash Ledger
+    function isValidPettyCash(data, movementId) {
+      let allowed = [
+        'id', 'shiftId', 'timestamp', 'type', 'category', 'categoryLabel',
+        'amount', 'reason', 'recipientOrSource', 'recordedBy', 'recordedByUid',
+        'createdAt', 'updatedAt'
+      ];
+      let required = [
+        'id', 'shiftId', 'timestamp', 'type', 'category', 'amount', 'reason',
+        'recipientOrSource', 'recordedBy', 'recordedByUid', 'createdAt'
+      ];
+
+      return data.keys().hasAll(required) &&
+        data.keys().hasOnly(allowed) &&
+        data.id is string && data.id == movementId &&
+        data.shiftId is string && data.shiftId.size() >= 1 && data.shiftId.size() <= 64 &&
+        data.timestamp is timestamp &&
+        data.type in ['PAID_IN', 'PAID_OUT'] &&
+        data.category in ['COLD_CHAIN_ICE', 'RECEIPT_PAPER', 'COURIER_FEE', 'CASH_FLOAT_TOPUP', 'CLEANING_SUPPLIES', 'EMERGENCY_EXPENSE', 'OTHER'] &&
+        data.amount is number && data.amount > 0 &&
+        data.reason is string && data.reason.size() >= 3 && data.reason.size() <= 300 &&
+        data.recipientOrSource is string && data.recipientOrSource.size() >= 2 && data.recipientOrSource.size() <= 150 &&
+        data.recordedBy is string && data.recordedBy.size() >= 2 && data.recordedBy.size() <= 100 &&
+        data.recordedByUid is string && data.recordedByUid.size() >= 1 && data.recordedByUid.size() <= 64 &&
+        data.createdAt is timestamp &&
+        (!('categoryLabel' in data) || (data.categoryLabel is string && data.categoryLabel.size() <= 100)) &&
+        (!('updatedAt' in data) || (data.updatedAt is timestamp));
+    }
+
+    // 7. Validator: Compounding Recipes (Resep Racikan Farmasi)
+    function isValidCompoundingRecipe(data, recipeId) {
+      let allowed = [
+        'id', 'recipeName', 'method', 'packetCount', 'dosageSigna',
+        'patientName', 'patientAgeYears', 'patientWeightKg', 'ingredients',
+        'packagingType', 'packagingCost', 'tuslahFee', 'subtotalIngredients',
+        'grandTotal', 'beyondUseDate', 'notes', 'prescribedBy',
+        'compoundedBy', 'compoundedByUid', 'createdAt', 'updatedAt'
+      ];
+      let required = [
+        'id', 'recipeName', 'method', 'packetCount', 'dosageSigna',
+        'patientName', 'ingredients', 'packagingType', 'packagingCost',
+        'tuslahFee', 'subtotalIngredients', 'grandTotal', 'beyondUseDate',
+        'compoundedBy', 'compoundedByUid', 'createdAt', 'updatedAt'
+      ];
+
+      return data.keys().hasAll(required) &&
+        data.keys().hasOnly(allowed) &&
+        data.id is string && data.id == recipeId &&
+        data.recipeName is string && data.recipeName.size() >= 2 && data.recipeName.size() <= 150 &&
+        data.method in ['DTD', 'NON_DTD'] &&
+        data.packetCount is int && data.packetCount > 0 && data.packetCount <= 500 &&
+        data.dosageSigna is string && data.dosageSigna.size() >= 2 && data.dosageSigna.size() <= 100 &&
+        data.patientName is string && data.patientName.size() >= 1 && data.patientName.size() <= 100 &&
+        data.ingredients is list && data.ingredients.size() > 0 && data.ingredients.size() <= 30 &&
+        data.packagingType in ['KAPSUL', 'PUYER_PERKAMEN', 'POT_SALEP', 'BOTOL_SIRUP'] &&
+        data.packagingCost is number && data.packagingCost >= 0 &&
+        data.tuslahFee is number && data.tuslahFee >= 0 &&
+        data.subtotalIngredients is number && data.subtotalIngredients >= 0 &&
+        data.grandTotal is number && data.grandTotal >= 0 &&
+        data.beyondUseDate is timestamp &&
+        data.compoundedBy is string && data.compoundedBy.size() >= 2 && data.compoundedBy.size() <= 100 &&
+        data.compoundedByUid is string && data.compoundedByUid.size() >= 1 && data.compoundedByUid.size() <= 64 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp &&
+        (!('patientAgeYears' in data) || (data.patientAgeYears is number && data.patientAgeYears >= 0 && data.patientAgeYears <= 150)) &&
+        (!('patientWeightKg' in data) || (data.patientWeightKg is number && data.patientWeightKg >= 0 && data.patientWeightKg <= 300)) &&
+        (!('notes' in data) || (data.notes is string && data.notes.size() <= 500)) &&
+        (!('prescribedBy' in data) || (data.prescribedBy is string && data.prescribedBy.size() <= 100));
+    }
+
+    // 8. Validator: Regulatory Narcotics & Psychotropics Log (SIPNAP / BPOM)
+    function isValidRegulatoryLog(data, logId) {
+      let allowed = [
+        'id', 'kfaCode', 'productName', 'drugClass', 'dosageForm', 'unit',
+        'batchNumber', 'initialStock', 'incomingQty', 'incomingInvoiceNo',
+        'incomingPbfName', 'outgoingPrescriptionQty', 'prescriptionNo',
+        'prescriptionDate', 'doctorName', 'doctorSip', 'patientName',
+        'patientAddress', 'destructionQty', 'finalStock', 'reportedByUid',
+        'apjSipa', 'timestamp', 'createdAt'
+      ];
+      let required = [
+        'id', 'productName', 'drugClass', 'dosageForm', 'unit', 'batchNumber',
+        'initialStock', 'incomingQty', 'outgoingPrescriptionQty', 'finalStock',
+        'reportedByUid', 'apjSipa', 'timestamp', 'createdAt'
+      ];
+
+      return data.keys().hasAll(required) &&
+        data.keys().hasOnly(allowed) &&
+        data.id is string && data.id == logId &&
+        data.productName is string && data.productName.size() >= 2 && data.productName.size() <= 150 &&
+        data.drugClass in ['NARKOTIKA', 'PSIKOTROPIKA', 'PREKURSOR', 'OOT'] &&
+        data.dosageForm is string && data.dosageForm.size() >= 1 && data.dosageForm.size() <= 50 &&
+        data.unit is string && data.unit.size() >= 1 && data.unit.size() <= 32 &&
+        data.batchNumber is string && data.batchNumber.size() >= 1 && data.batchNumber.size() <= 64 &&
+        data.initialStock is number && data.initialStock >= 0 &&
+        data.incomingQty is number && data.incomingQty >= 0 &&
+        data.outgoingPrescriptionQty is number && data.outgoingPrescriptionQty >= 0 &&
+        data.finalStock is number && data.finalStock >= 0 &&
+        data.reportedByUid is string && data.reportedByUid == request.auth.uid &&
+        data.apjSipa is string && data.apjSipa.size() >= 5 && data.apjSipa.size() <= 100 &&
+        data.timestamp is timestamp &&
+        data.createdAt is timestamp &&
+        (!('kfaCode' in data) || (data.kfaCode is string && data.kfaCode.size() <= 32)) &&
+        (!('incomingInvoiceNo' in data) || (data.incomingInvoiceNo is string && data.incomingInvoiceNo.size() <= 64)) &&
+        (!('incomingPbfName' in data) || (data.incomingPbfName is string && data.incomingPbfName.size() <= 150)) &&
+        (!('prescriptionNo' in data) || (data.prescriptionNo is string && data.prescriptionNo.size() <= 64)) &&
+        (!('prescriptionDate' in data) || (data.prescriptionDate is timestamp)) &&
+        (!('doctorName' in data) || (data.doctorName is string && data.doctorName.size() <= 100)) &&
+        (!('doctorSip' in data) || (data.doctorSip is string && data.doctorSip.size() <= 100)) &&
+        (!('patientName' in data) || (data.patientName is string && data.patientName.size() <= 100)) &&
+        (!('patientAddress' in data) || (data.patientAddress is string && data.patientAddress.size() <= 255)) &&
+        (!('destructionQty' in data) || (data.destructionQty is number && data.destructionQty >= 0));
+    }
+
+    // 9. Validator: Financial Reports (P&L, EBITDA, Gross Margin)
+    function isValidFinancialReport(data, reportId) {
+      let allowed = [
+        'id', 'reportType', 'periodStart', 'periodEnd', 'totalRevenue',
+        'totalHpp', 'grossProfit', 'operatingExpenses', 'ebitda', 'netProfit',
+        'generatedByUid', 'notes', 'breakdown', 'createdAt', 'updatedAt'
+      ];
+      let required = [
+        'id', 'reportType', 'periodStart', 'periodEnd', 'totalRevenue',
+        'totalHpp', 'grossProfit', 'generatedByUid', 'createdAt', 'updatedAt'
+      ];
+
+      return data.keys().hasAll(required) &&
+        data.keys().hasOnly(allowed) &&
+        data.id is string && data.id == reportId &&
+        data.reportType in ['DAILY_CLOSING', 'MONTHLY_PNL', 'EBITDA', 'HPP_VALUATION', 'GROSS_MARGIN'] &&
+        data.periodStart is timestamp &&
+        data.periodEnd is timestamp && data.periodEnd >= data.periodStart &&
+        data.totalRevenue is number &&
+        data.totalHpp is number &&
+        data.grossProfit is number &&
+        data.generatedByUid is string && data.generatedByUid.size() >= 1 && data.generatedByUid.size() <= 64 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp &&
+        (!('operatingExpenses' in data) || (data.operatingExpenses is number)) &&
+        (!('ebitda' in data) || (data.ebitda is number)) &&
+        (!('netProfit' in data) || (data.netProfit is number)) &&
+        (!('notes' in data) || (data.notes is string && data.notes.size() <= 1000)) &&
+        (!('breakdown' in data) || (data.breakdown is map));
+    }
+
+    // 10. Validator: Activity & Security Audit Logs (Append-Only)
+    function isValidAuditLog(data, logId) {
+      let allowed = [
+        'id', 'timestamp', 'actorUid', 'actorName', 'actorRole',
+        'action', 'resource', 'resourceId', 'details', 'ipAddress',
+        'userAgent', 'createdAt'
+      ];
+      let required = [
+        'id', 'timestamp', 'actorUid', 'actorName', 'actorRole',
+        'action', 'resource', 'createdAt'
+      ];
+
+      return data.keys().hasAll(required) &&
+        data.keys().hasOnly(allowed) &&
+        data.id is string && data.id == logId &&
+        data.timestamp is timestamp &&
+        data.actorUid is string && data.actorUid == request.auth.uid &&
+        data.actorName is string && data.actorName.size() >= 2 && data.actorName.size() <= 100 &&
+        data.actorRole is string && data.actorRole.size() >= 2 && data.actorRole.size() <= 50 &&
+        data.action is string && data.action.size() >= 2 && data.action.size() <= 100 &&
+        data.resource is string && data.resource.size() >= 2 && data.resource.size() <= 100 &&
+        data.createdAt is timestamp &&
+        (!('resourceId' in data) || (data.resourceId is string && data.resourceId.size() <= 100)) &&
+        (!('details' in data) || (data.details is map)) &&
+        (!('ipAddress' in data) || (data.ipAddress is string && data.ipAddress.size() <= 64)) &&
+        (!('userAgent' in data) || (data.userAgent is string && data.userAgent.size() <= 255));
+    }
+
+    // 11. Validator: System Settings Configuration
+    function isValidSystemSetting(data, settingId) {
+      let allowed = ['id', 'name', 'value', 'description', 'updatedAt', 'updatedBy'];
+      let required = ['id', 'name', 'value', 'updatedAt', 'updatedBy'];
+
+      return data.keys().hasAll(required) &&
+        data.keys().hasOnly(allowed) &&
+        data.id is string && data.id == settingId &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 100 &&
+        data.updatedAt is timestamp &&
+        data.updatedBy is string && data.updatedBy.size() >= 1 && data.updatedBy.size() <= 64 &&
+        (!('description' in data) || (data.description is string && data.description.size() <= 500));
+    }
+
+    // 12. Validator: Surat Pesanan PBF (SP Orders)
+    function isValidSPOrder(data, orderId) {
+      let allowed = [
+        'id', 'spNumber', 'type', 'pbfName', 'pbfAddress', 'date',
+        'apjName', 'apjSipa', 'apotekSia', 'items', 'status',
+        'createdAt', 'updatedAt', 'updatedBy'
+      ];
+      let required = [
+        'id', 'spNumber', 'type', 'pbfName', 'date', 'apjName',
+        'apjSipa', 'apotekSia', 'items', 'status', 'createdAt', 'updatedAt', 'updatedBy'
+      ];
+
+      return data.keys().hasAll(required) &&
+        data.keys().hasOnly(allowed) &&
+        data.id is string && data.id == orderId &&
+        data.spNumber is string && data.spNumber.size() >= 3 && data.spNumber.size() <= 64 &&
+        data.type in ['REGULER', 'PREKURSOR', 'OOT', 'PSIKOTROPIKA', 'NARKOTIKA'] &&
+        data.pbfName is string && data.pbfName.size() >= 2 && data.pbfName.size() <= 150 &&
+        data.date is timestamp &&
+        data.apjName is string && data.apjName.size() >= 2 && data.apjName.size() <= 100 &&
+        data.apjSipa is string && data.apjSipa.size() >= 5 && data.apjSipa.size() <= 100 &&
+        data.apotekSia is string && data.apotekSia.size() >= 5 && data.apotekSia.size() <= 100 &&
+        data.items is list && data.items.size() > 0 && data.items.size() <= 50 &&
+        data.status in ['DRAFT', 'SUBMITTED', 'FULFILLED'] &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp &&
+        data.updatedBy is string && data.updatedBy.size() >= 1 && data.updatedBy.size() <= 64 &&
+        (!('pbfAddress' in data) || (data.pbfAddress is string && data.pbfAddress.size() <= 255));
+    }
+
+    // 13. Validator: Held Bills (POS Parked Carts)
+    function isValidHeldBill(data, billId) {
+      let allowed = ['id', 'heldAt', 'cashierId', 'cashierName', 'customerName', 'items', 'note', 'createdAt', 'updatedAt'];
+      let required = ['id', 'heldAt', 'cashierId', 'cashierName', 'customerName', 'items', 'createdAt', 'updatedAt'];
+
+      return data.keys().hasAll(required) &&
+        data.keys().hasOnly(allowed) &&
+        data.id is string && data.id == billId &&
+        data.heldAt is timestamp &&
+        data.cashierId is string && data.cashierId.size() >= 1 && data.cashierId.size() <= 64 &&
+        data.cashierName is string && data.cashierName.size() >= 2 && data.cashierName.size() <= 100 &&
+        data.customerName is string && data.customerName.size() >= 1 && data.customerName.size() <= 100 &&
+        data.items is list && data.items.size() > 0 && data.items.size() <= 100 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp &&
+        (!('note' in data) || (data.note is string && data.note.size() <= 300));
+    }
+
+    // ========================================================================
+    // Collection Rules & Access Control Policies
+    // ========================================================================
+
+    // 1. Staff User Profiles
+    // Readable by active staff. Writable ONLY by SUPER_ADMIN & OWNER (or self display name/avatar only, no role or pin tampering).
+    // No deletion (soft-delete status SUSPENDED).
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isActiveStaff();
+
+      allow create: if isAuthenticated() && isValidUser(request.resource.data, uid) && (
+        (isBootstrapAdmin() && isOwner(uid) && request.resource.data.role == 'SUPER_ADMIN') ||
+        isSuperAdmin() ||
+        (isOwnerRole() && request.resource.data.role != 'SUPER_ADMIN')
+      );
+
+      allow update: if isAuthenticated() && isValidUser(request.resource.data, uid) && (
+        // Super Admin full profile management (id & createdAt immutable)
+        (isSuperAdmin() && areImmutableFieldsUnchanged(['id', 'createdAt'])) ||
+        // Owner managing staff (cannot touch or create Super Admin accounts)
+        (isOwnerRole() && resource.data.role != 'SUPER_ADMIN' && request.resource.data.role != 'SUPER_ADMIN' && areImmutableFieldsUnchanged(['id', 'createdAt'])) ||
+        // Self-update: Staff can ONLY update name, avatar, title, phone, updatedAt
+        // Role, status, email, id, pinHash, and createdAt are strictly IMMUTABLE to prevent privilege escalation
+        (isOwner(uid) &&
+         areImmutableFieldsUnchanged(['id', 'email', 'role', 'status', 'pinHash', 'createdAt']) &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'avatar', 'title', 'phone', 'updatedAt']))
+      );
+
+      // Deletion is strictly prohibited: staff must be soft-deleted by setting status = 'SUSPENDED'
+      allow delete: if false;
+    }
+
+    // 2. Product Catalog (Public/Staff Facing - Selling Prices Only)
+    // Read by active staff. Writable by APOTEKER, OWNER, SUPER_ADMIN.
+    match /products/{productId} {
+      allow read: if isActiveStaff();
+
+      allow create: if isApotekerRole() &&
+        isValidProduct(request.resource.data, productId);
+
+      allow update: if isApotekerRole() &&
+        isValidProduct(request.resource.data, productId) &&
+        areImmutableFieldsUnchanged(['id', 'createdAt']);
+
+      allow delete: if isOwnerRole();
+    }
+
+    // 3. Confidential Product Acquisition Costs (HPP / purchasePriceHNA)
+    // Read & write RESTRICTED EXCLUSIVELY to OWNER and SUPER_ADMIN.
+    // Cashiers and pharmacists are strictly forbidden from reading or altering HPP margins.
+    match /product_costs/{productId} {
+      allow read: if isOwnerRole();
+
+      allow create: if isOwnerRole() &&
+        isValidProductCost(request.resource.data, productId);
+
+      allow update: if isOwnerRole() &&
+        isValidProductCost(request.resource.data, productId) &&
+        areImmutableFieldsUnchanged(['productId']);
+
+      allow delete: if isSuperAdmin();
+    }
+
+    // 4. POS Sales Receipts (Financial Record)
+    // Read by active staff. Create by active cashiers for their own cashierId.
+    // Update and delete STRICTLY FORBIDDEN (immutable audit log).
+    match /transactions/{transactionId} {
+      allow read: if isActiveStaff();
+
+      allow create: if isActiveStaff() &&
+        request.resource.data.cashierId == request.auth.uid &&
+        isValidTransaction(request.resource.data, transactionId);
+
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // 5. Cashier Shifts & Blind Reconciliation
+    // Read by active staff. Create/update by cashier for their shift or supervisor/owner.
+    match /shifts/{shiftId} {
+      allow read: if isActiveStaff();
+
+      allow create: if isActiveStaff() &&
+        (request.resource.data.cashierId == request.auth.uid || isOwnerRole()) &&
+        isValidShift(request.resource.data, shiftId);
+
+      allow update: if isActiveStaff() &&
+        isValidShift(request.resource.data, shiftId) &&
+        areImmutableFieldsUnchanged(['id', 'cashierId', 'startTime', 'openingCash', 'createdAt']) &&
+        (
+          // Cashier closing/updating their own active open shift
+          (resource.data.cashierId == request.auth.uid && resource.data.status == 'OPEN') ||
+          // Supervisor or Owner managing reconciliation and auditing
+          isOwnerRole()
+        );
+
+      allow delete: if isSuperAdmin();
+    }
+
+    // 6. Petty Cash Movements
+    // Read by active staff, create by active staff for their own UID.
+    // Delete and update restricted to OWNER & SUPER_ADMIN.
+    match /petty_cash_movements/{movementId} {
+      allow read: if isActiveStaff();
+
+      allow create: if isActiveStaff() &&
+        request.resource.data.recordedByUid == request.auth.uid &&
+        isValidPettyCash(request.resource.data, movementId);
+
+      allow update: if isOwnerRole() &&
+        isValidPettyCash(request.resource.data, movementId) &&
+        areImmutableFieldsUnchanged(['id', 'recordedByUid', 'createdAt']);
+
+      allow delete: if isOwnerRole();
+    }
+
+    // 7. Compounding Recipes (Resep Racikan)
+    // Read by active staff, writable by APOTEKER and OWNER/SUPER_ADMIN.
+    match /compounding_recipes/{recipeId} {
+      allow read: if isActiveStaff();
+
+      allow create: if isApotekerRole() &&
+        isValidCompoundingRecipe(request.resource.data, recipeId);
+
+      allow update: if isApotekerRole() &&
+        isValidCompoundingRecipe(request.resource.data, recipeId) &&
+        areImmutableFieldsUnchanged(['id', 'createdAt']);
+
+      allow delete: if isOwnerRole();
+    }
+
+    // 8. Regulatory Narcotics & Psychotropics Log (SIPNAP & BPOM)
+    // Read/create by APOTEKER and OWNER/SUPER_ADMIN. Immutable (no update, no delete).
+    match /regulatory_narcotics_log/{logId} {
+      allow read: if isApotekerRole();
+
+      allow create: if isApotekerRole() &&
+        request.resource.data.reportedByUid == request.auth.uid &&
+        isValidRegulatoryLog(request.resource.data, logId);
+
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // 9. Financial Reports & P&L
+    // Exclusively restricted to OWNER and SUPER_ADMIN.
+    match /financial_reports/{reportId} {
+      allow read: if isOwnerRole();
+
+      allow create: if isOwnerRole() &&
+        isValidFinancialReport(request.resource.data, reportId);
+
+      allow update: if isOwnerRole() &&
+        isValidFinancialReport(request.resource.data, reportId) &&
+        areImmutableFieldsUnchanged(['id', 'createdAt']);
+
+      allow delete: if isSuperAdmin();
+    }
+
+    // 10. Activity & Security Audit Logs
+    // Append-only system audit log. Read by OWNER/SUPER_ADMIN.
+    // Created by active staff for their own actorUid. No update, no delete.
+    match /activity_audit_logs/{logId} {
+      allow read: if isOwnerRole();
+
+      allow create: if isActiveStaff() &&
+        request.resource.data.actorUid == request.auth.uid &&
+        isValidAuditLog(request.resource.data, logId);
+
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // 11. System Settings & Pharmacy Profile
+    // Read by active staff. Writable ONLY by SUPER_ADMIN.
+    match /system_settings/{settingId} {
+      allow read: if isActiveStaff();
+
+      allow create: if isSuperAdmin() &&
+        isValidSystemSetting(request.resource.data, settingId);
+
+      allow update: if isSuperAdmin() &&
+        isValidSystemSetting(request.resource.data, settingId) &&
+        areImmutableFieldsUnchanged(['id']);
+
+      allow delete: if isSuperAdmin();
+    }
+
+    // 12. Surat Pesanan Obat (SP Orders - PBF Procurement)
+    // Read and create/update by APOTEKER, OWNER, SUPER_ADMIN.
+    match /sp_orders/{orderId} {
+      allow read: if isApotekerRole();
+
+      allow create: if isApotekerRole() &&
+        isValidSPOrder(request.resource.data, orderId);
+
+      allow update: if isApotekerRole() &&
+        isValidSPOrder(request.resource.data, orderId) &&
+        areImmutableFieldsUnchanged(['id', 'createdAt']);
+
+      allow delete: if isOwnerRole();
+    }
+
+    // 13. Parked POS Bills (Held Bills)
+    // Temporary carts parked during cashier operations.
+    match /held_bills/{billId} {
+      allow read: if isActiveStaff();
+
+      allow create: if isActiveStaff() &&
+        isValidHeldBill(request.resource.data, billId);
+
+      allow update: if isActiveStaff() &&
+        isValidHeldBill(request.resource.data, billId) &&
+        areImmutableFieldsUnchanged(['id', 'createdAt']);
+
+      allow delete: if isActiveStaff();
+    }
+
+    // ========================================================================
+    // Root Fallback: Default Deny All Unmapped Paths
+    // ========================================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
