@@ -46,17 +46,17 @@ export const PaymentBreakdownCard: React.FC<PaymentBreakdownCardProps> = ({
           </span>
           <div>
             <h3 className="text-[17px] font-bold text-[#1C1C1E] dark:text-white">
-              Rekapitulasi Kanal Pembayaran (Tender Settlement)
+              Rincian Metode Pembayaran
             </h3>
             <p className="text-[12px] text-[#8E8E93]">
-              Komposisi kas masuk, estimasi biaya transaksi merchant (MDR), dan rekonsiliasi bank
+              Komposisi penerimaan kas tunai, QRIS, kartu debit/kredit, dan potongan biaya administrasi bank (MDR)
             </p>
           </div>
         </div>
 
-        <div className="text-left sm:text-right">
-          <span className="text-[11px] text-[#8E8E93] uppercase font-semibold">Total Bersih Masuk Rekening / Kasir</span>
-          <div className="text-[18px]">
+        <div className="text-left sm:text-right shrink-0">
+          <span className="text-[11px] text-[#8E8E93] uppercase font-semibold whitespace-nowrap">Total Bersih Diterima</span>
+          <div className="text-[18px] whitespace-nowrap">
             {renderAmount(netSettlementAll, "text-emerald-600 dark:text-emerald-400")}
           </div>
         </div>

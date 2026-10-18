@@ -22,9 +22,25 @@ interface PaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: (tx: Transaction) => void;
+  transactionMode?: "SWAMEDIKASI" | "RESEP_DOKTER";
+  patientName?: string;
+  doctorName?: string;
+  doctorSip?: string;
+  prescriptionNumber?: string;
+  isPrescriptionVerified?: boolean;
 }
 
-export function PaymentModal({ isOpen, onClose, onSuccess }: PaymentModalProps) {
+export function PaymentModal({
+  isOpen,
+  onClose,
+  onSuccess,
+  transactionMode = "SWAMEDIKASI",
+  patientName,
+  doctorName,
+  doctorSip,
+  prescriptionNumber,
+  isPrescriptionVerified = true,
+}: PaymentModalProps) {
   const { cart, processCheckout, currentShift, currentUser } = useApotekStore();
   const [method, setMethod] = useState<PaymentMethodType>("CASH");
   const [paidInput, setPaidInput] = useState<string>("");
@@ -68,6 +84,12 @@ export function PaymentModal({ isOpen, onClose, onSuccess }: PaymentModalProps) 
       paymentMethod: method,
       paidAmount: method === "CASH" ? paidAmount : grandTotal,
       cashierName,
+      transactionMode,
+      customerName: patientName,
+      doctorName: doctorName,
+      doctorSip,
+      prescriptionNumber,
+      isPrescriptionVerified,
     });
 
     if (tx) {
@@ -149,7 +171,7 @@ export function PaymentModal({ isOpen, onClose, onSuccess }: PaymentModalProps) 
             </div>
 
             <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700">
-              <span className="text-xs text-slate-500 block mb-1">Total Tagihan (Grand Total)</span>
+              <span className="text-xs text-slate-500 block mb-1">Total Pembayaran</span>
               <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400 font-mono tracking-tight">
                 {formatRupiah(grandTotal)}
               </div>
@@ -187,7 +209,7 @@ export function PaymentModal({ isOpen, onClose, onSuccess }: PaymentModalProps) 
                 }`}
               >
                 <QrCode className="h-5 w-5" />
-                <span>QRIS Dinamis</span>
+                <span>QRIS</span>
               </button>
 
               <button
@@ -253,7 +275,7 @@ export function PaymentModal({ isOpen, onClose, onSuccess }: PaymentModalProps) 
                   <QrCode className="h-28 w-28 text-slate-900" />
                 </div>
                 <div className="text-xs text-slate-500">
-                  Scan QRIS via BCA Mobile, Mandiri Livin, GoPay, OVO, atau ShopeePay
+                  Pindai kode QRIS menggunakan aplikasi perbankan atau dompet digital
                 </div>
                 <button
                   type="button"
@@ -266,7 +288,7 @@ export function PaymentModal({ isOpen, onClose, onSuccess }: PaymentModalProps) 
                 >
                   <CheckCircle2 className="h-4 w-4" />
                   <span>
-                    {isQrisVerified ? "Status: Pembayaran Lunas (Callback OK)" : "Simulasikan Notifikasi Pembayaran Lunas"}
+                    {isQrisVerified ? "Status: Pembayaran QRIS Lunas" : "Konfirmasi Pembayaran QRIS Diterima"}
                   </span>
                 </button>
               </div>
@@ -308,24 +330,24 @@ export function PaymentModal({ isOpen, onClose, onSuccess }: PaymentModalProps) 
         </div>
 
         {/* Footer Buttons */}
-        <div className="px-6 py-4 bg-slate-50 dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-          <div className="text-xs text-slate-400 flex items-center gap-1">
-            <Printer className="h-3.5 w-3.5" />
-            <span>Struk ESC/POS akan langsung dicetak setelah finalisasi</span>
+        <div className="px-6 py-4 bg-slate-50 dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3">
+          <div className="text-xs text-slate-500 flex items-center gap-1.5">
+            <Printer className="h-3.5 w-3.5 shrink-0" />
+            <span>Struk pembayaran dan etiket obat langsung dicetak otomatis</span>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 shrink-0">
             <button
               onClick={onClose}
-              className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 transition-colors"
+              className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 transition-colors whitespace-nowrap"
             >
               Batal
             </button>
             <button
               onClick={handleFinalize}
-              className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-500/20 flex items-center gap-2 transition-all"
+              className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-500/20 flex items-center gap-2 transition-all whitespace-nowrap"
             >
-              <CheckCircle2 className="h-4 w-4" />
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
               <span>Selesaikan & Cetak Struk (F12)</span>
             </button>
           </div>

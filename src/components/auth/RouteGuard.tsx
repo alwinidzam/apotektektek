@@ -21,9 +21,11 @@ const CASHIER_RESTRICTED_ROUTES = [
   "/compounding",
   "/procurement",
   "/analytics",
+  "/products",
+  "/crm",
 ];
 
-const APOTEKER_RESTRICTED_ROUTES = ["/owner", "/users"];
+const GUDANG_RESTRICTED_ROUTES = ["/owner", "/analytics", "/users"];
 
 export function RouteGuard({ children }: RouteGuardProps) {
   const pathname = usePathname();
@@ -88,13 +90,19 @@ export function RouteGuard({ children }: RouteGuardProps) {
 
     // Sync store with active session if mismatch
     if (!currentUser || currentUser.email !== session.email) {
+      const titleMap: Record<UserRole, string> = {
+        SUPER_ADMIN: "Level 1 — Pemilik Apotek & Super Admin",
+        OWNER: "Level 1 — Pemilik Apotek (Akses Penuh)",
+        KARYAWAN_APOTEKER: "Level 2 — Petugas Gudang (Akses Menengah)",
+        KARYAWAN_KASIR: "Level 3 — Kasir (Akses Terbatas)",
+      };
       setCurrentUser({
         id: session.uid,
         name: session.displayName,
         username: session.username,
         email: session.email,
         role: session.role,
-        title: session.role === "SUPER_ADMIN" ? "Chief Executive Owner & Super Admin" : session.displayName,
+        title: titleMap[session.role] || session.displayName,
         avatar: session.displayName.substring(0, 2).toUpperCase(),
       });
     }
@@ -109,7 +117,7 @@ export function RouteGuard({ children }: RouteGuardProps) {
         <div className="flex flex-col items-center gap-3">
           <div className="w-10 h-10 border-3 border-[#008B94] border-t-transparent rounded-full animate-spin" />
           <span className="text-[12px] font-semibold text-[#8E8E93]">
-            Memverifikasi Sesi Autentikasi...
+            Memverifikasi Wewenang RBAC...
           </span>
         </div>
       </div>
@@ -124,7 +132,7 @@ export function RouteGuard({ children }: RouteGuardProps) {
 
   const role: UserRole = activeSession?.role || currentUser?.role || "KARYAWAN_KASIR";
 
-  // Check cashier restrictions
+  // Check Level 3 — Kasir (Akses Terbatas) restrictions
   if (role === "KARYAWAN_KASIR") {
     const isBlocked = CASHIER_RESTRICTED_ROUTES.some(
       (r) => pathname === r || pathname.startsWith(`${r}/`)
@@ -132,23 +140,23 @@ export function RouteGuard({ children }: RouteGuardProps) {
     if (isBlocked) {
       return (
         <AccessDenied
-          requiredRole="Apoteker / Owner / Super Admin"
-          reason="Sesuai kebijakan keamanan dan pemisahan tugas (Separation of Duties), akun Kasir tidak memiliki hak akses ke modul manajemen, pengaturan HPP distributor, atau formulasi klinis ini."
+          requiredRole="Level 1 (Pemilik Apotek) / Level 2 (Petugas Gudang)"
+          reason="Sesuai Standar Keamanan RBAC Level 3 (Akses Terbatas), akun Kasir hanya difokuskan pada pelayanan transaksi penjualan kasir POS dan pencarian sisa stok obat untuk mencegah salah input antar-divisi."
         />
       );
     }
   }
 
-  // Check apoteker restrictions
+  // Check Level 2 — Petugas Gudang (Akses Menengah) restrictions
   if (role === "KARYAWAN_APOTEKER") {
-    const isBlocked = APOTEKER_RESTRICTED_ROUTES.some(
+    const isBlocked = GUDANG_RESTRICTED_ROUTES.some(
       (r) => pathname === r || pathname.startsWith(`${r}/`)
     );
     if (isBlocked) {
       return (
         <AccessDenied
-          requiredRole="Owner (PSA) / Super Admin"
-          reason="Modul Laba Bersih Finansial, Valuasi HPP Komprehensif, dan Manajemen Pengguna merupakan wewenang eksklusif Pemilik Sarana Apotek (Owner) dan Super Admin."
+          requiredRole="Level 1 — Pemilik Apotek (Akses Penuh)"
+          reason="Sesuai Standar Keamanan RBAC Level 2 (Akses Menengah), Petugas Gudang dikhususkan untuk mengelola data stok obat, mencatat barang masuk supplier, dan mengeksekusi Stock Opname. Pemantauan Laporan Keuangan Omzet dan Persetujuan PO adalah wewenang eksklusif Level 1 (Pemilik Apotek)."
         />
       );
     }

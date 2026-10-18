@@ -67,13 +67,13 @@ export const ShiftRevenueChart: React.FC<ShiftRevenueChartProps> = ({
                   </div>
 
                   <span
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap shrink-0 ${
                       shift.status === "OPEN"
                         ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 animate-pulse"
                         : "bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300"
                     }`}
                   >
-                    {shift.status === "OPEN" ? "Shift Berjalan" : "Tutup Kas"}
+                    {shift.status === "OPEN" ? "Shift Berjalan" : "Shift Selesai"}
                   </span>
                 </div>
 
@@ -102,11 +102,11 @@ export const ShiftRevenueChart: React.FC<ShiftRevenueChartProps> = ({
               </div>
 
               <div className="mt-4 pt-3 border-t border-black/[0.04] dark:border-white/[0.06] flex items-center justify-between text-[11px] text-[#8E8E93]">
-                <span className="flex items-center gap-1 truncate max-w-[120px]">
-                  <User className="w-3.5 h-3.5" />
+                <span className="flex items-center gap-1 truncate max-w-[140px]">
+                  <User className="w-3.5 h-3.5 shrink-0" />
                   {shift.cashierName}
                 </span>
-                <span className="font-semibold text-[#1C1C1E] dark:text-white">
+                <span className="font-semibold text-[#1C1C1E] dark:text-white whitespace-nowrap">
                   {shift.totalTransactions} Struk
                 </span>
               </div>
@@ -117,15 +117,15 @@ export const ShiftRevenueChart: React.FC<ShiftRevenueChartProps> = ({
 
       {/* Selected Shift Deep Analysis Card */}
       {activeShift && (
-        <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[22px] border border-black/[0.06] dark:border-white/[0.08] shadow-[0_2px_12px_rgba(0,0,0,0.03)]">
+        <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[18px] border border-black/[0.06] dark:border-white/[0.08] shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-black/[0.06] dark:border-white/[0.08]">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-[12px] bg-teal-50 dark:bg-teal-950/50 flex items-center justify-center text-[#008B94]">
+              <div className="w-10 h-10 rounded-[12px] bg-teal-50 dark:bg-teal-950/50 flex items-center justify-center text-[#008B94] shrink-0">
                 <Clock className="w-5 h-5" />
               </div>
               <div>
                 <h3 className="text-[17px] font-bold text-[#1C1C1E] dark:text-white">
-                  Bedah Performa: {activeShift.shiftLabel}
+                  Rincian Performa: {activeShift.shiftLabel}
                 </h3>
                 <p className="text-[12px] text-[#8E8E93]">
                   Kasir Bertugas: <strong className="text-[#1C1C1E] dark:text-white">{activeShift.cashierName}</strong> &bull; Terminal: {activeShift.terminalId}
@@ -133,35 +133,35 @@ export const ShiftRevenueChart: React.FC<ShiftRevenueChartProps> = ({
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] text-[#8E8E93] font-mono bg-neutral-100 dark:bg-neutral-800 px-3 py-1.5 rounded-[8px]">
-                {new Date(activeShift.startTime).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })} - {activeShift.endTime ? new Date(activeShift.endTime).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) : "Sekarang"}
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-[11px] text-[#8E8E93] font-mono bg-neutral-100 dark:bg-neutral-800 px-3 py-1.5 rounded-[8px] whitespace-nowrap">
+                {new Date(activeShift.startTime).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })} – {activeShift.endTime ? new Date(activeShift.endTime).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) : "Sekarang"}
               </span>
             </div>
           </div>
 
-          {/* Metric Grid (AOV, Basket Size, Kasir Productivity) */}
+          {/* Metric Grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-5">
-            <div className="p-4 rounded-[16px] bg-neutral-50 dark:bg-[#2C2C2E]/50 border border-black/[0.04] dark:border-white/[0.06]">
-              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#8E8E93] uppercase">
-                <ShoppingBag className="w-3.5 h-3.5 text-blue-500" />
-                <span>Rata-Rata Belanja (AOV)</span>
+            <div className="p-4 rounded-[14px] bg-neutral-50 dark:bg-[#2C2C2E]/50 border border-black/[0.04] dark:border-white/[0.06]">
+              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#8E8E93] uppercase whitespace-nowrap">
+                <ShoppingBag className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                <span>Rata-Rata Nilai Struk</span>
               </div>
-              <div className="text-[18px] mt-1.5 font-bold text-[#1C1C1E] dark:text-white">
+              <div className="text-[18px] mt-1.5 font-bold text-[#1C1C1E] dark:text-white whitespace-nowrap">
                 {renderAmount(activeShift.averageOrderValue)}
               </div>
-              <p className="text-[10px] text-[#8E8E93] mt-0.5">Nilai rata-rata per struk pasien</p>
+              <p className="text-[10px] text-[#8E8E93] mt-0.5">Nilai rata-rata per transaksi</p>
             </div>
 
-            <div className="p-4 rounded-[16px] bg-neutral-50 dark:bg-[#2C2C2E]/50 border border-black/[0.04] dark:border-white/[0.06]">
-              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#8E8E93] uppercase">
-                <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
-                <span>Items Per Struk (IPT)</span>
+            <div className="p-4 rounded-[14px] bg-neutral-50 dark:bg-[#2C2C2E]/50 border border-black/[0.04] dark:border-white/[0.06]">
+              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#8E8E93] uppercase whitespace-nowrap">
+                <TrendingUp className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                <span>Jumlah Item per Struk</span>
               </div>
-              <div className="text-[18px] mt-1.5 font-bold text-[#1C1C1E] dark:text-white font-mono">
+              <div className="text-[18px] mt-1.5 font-bold text-[#1C1C1E] dark:text-white font-mono whitespace-nowrap">
                 {activeShift.itemsPerTransaction} <span className="text-[12px] font-normal text-[#8E8E93]">item</span>
               </div>
-              <p className="text-[10px] text-[#8E8E93] mt-0.5">Efektivitas cross-selling kasir</p>
+              <p className="text-[10px] text-[#8E8E93] mt-0.5">Rata-rata obat per struk</p>
             </div>
 
             <div className="p-4 rounded-[16px] bg-neutral-50 dark:bg-[#2C2C2E]/50 border border-black/[0.04] dark:border-white/[0.06]">

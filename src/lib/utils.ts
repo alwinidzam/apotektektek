@@ -71,3 +71,33 @@ export function getExpiryStatus(daysRemaining: number): {
 export function roundCashPayment(amount: number, step: 100 | 500 = 100): number {
   return Math.round(amount / step) * step;
 }
+
+export function formatIndonesianDate(date: string | Date | undefined | null): string {
+  if (!date) return "-";
+  const d = typeof date === "string" ? new Date(date) : date;
+  if (isNaN(d.getTime())) return String(date);
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(d);
+}
+
+export function formatUnitLabel(unit: string | undefined | null): string {
+  if (!unit) return "Unit";
+  const map: Record<string, string> = {
+    tablet: "Tablet",
+    kapsul: "Kapsul",
+    strip: "Strip",
+    botol: "Botol",
+    tube: "Tube",
+    sachet: "Sachet",
+    ampul: "Ampul",
+    vial: "Vial",
+    box: "Box",
+    kaplet: "Kaplet",
+    bungkus: "Bungkus",
+    fls: "Botol",
+  };
+  return map[unit.toLowerCase()] || unit;
+}

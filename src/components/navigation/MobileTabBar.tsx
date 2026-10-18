@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Store, Clock, Package, TrendingUp, Menu } from "lucide-react";
+import { Store, Package, Building2, TrendingUp, Menu } from "lucide-react";
 import { useApotekStore } from "@/lib/store";
 import { soundEngine } from "@/lib/audio";
 
@@ -13,42 +13,55 @@ interface MobileTabBarProps {
 
 export const MobileTabBar: React.FC<MobileTabBarProps> = ({ onOpenMobileMenu }) => {
   const pathname = usePathname();
-  const { currentShift } = useApotekStore();
+  const { currentUser, purchaseOrders } = useApotekStore();
 
-  const isShiftOpen = currentShift && currentShift.status === "OPEN";
+  const isLevel1 =
+    currentUser.role === "SUPER_ADMIN" || currentUser.role === "OWNER";
+  const isLevel2 = currentUser.role === "KARYAWAN_APOTEKER" || isLevel1;
+  const pendingPoCount = (purchaseOrders || []).filter(
+    (po) => po.status === "MENUNGGU_PERSETUJUAN"
+  ).length;
 
   const tabs = [
     {
       href: "/",
-      label: "Kasir",
+      label: "Kasir POS",
       icon: Store,
       isActive: pathname === "/",
     },
     {
-      href: "/shifts",
-      label: "Shift",
-      icon: Clock,
-      isActive: pathname === "/shifts",
-      hasBadge: isShiftOpen,
-    },
-    {
-      href: "/products",
-      label: "Produk",
+      href: "/inventory",
+      label: isLevel2 ? "Stok & Opname" : "Cek Stok",
       icon: Package,
-      isActive: pathname === "/products" || pathname === "/inventory",
+      isActive: pathname === "/inventory" || pathname === "/products",
     },
-    {
-      href: "/analytics",
-      label: "Analitik",
-      icon: TrendingUp,
-      isActive: pathname === "/analytics" || pathname === "/owner",
-    },
+    ...(isLevel2
+      ? [
+          {
+            href: "/procurement",
+            label: isLevel1 ? "Approve PO" : "Pesanan PO",
+            icon: Building2,
+            isActive: pathname === "/procurement",
+            hasBadge: pendingPoCount > 0,
+          },
+        ]
+      : []),
+    ...(isLevel1
+      ? [
+          {
+            href: "/owner",
+            label: "Omzet",
+            icon: TrendingUp,
+            isActive: pathname === "/owner" || pathname === "/analytics",
+          },
+        ]
+      : []),
   ];
 
   return (
     <nav
       aria-label="Mobile Bottom Navigation Bar"
-      className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-[#1C1C1E]/95 backdrop-blur-2xl border-t border-black/[0.08] dark:border-white/[0.12] px-2 py-1.5 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] flex items-center justify-around select-none"
+      className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-[#141416]/95 backdrop-blur-xl border-t border-neutral-200/80 dark:border-white/[0.08] px-2 py-1.5 flex items-center justify-around select-none"
       style={{ paddingBottom: "max(0.375rem, env(safe-area-inset-bottom))" }}
     >
       {tabs.map((tab) => {
@@ -67,7 +80,7 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({ onOpenMobileMenu }) 
             <div className="relative">
               <Icon className="w-5 h-5 transition-transform" />
               {tab.hasBadge && (
-                <span className="w-2 h-2 rounded-full bg-emerald-500 absolute -top-0.5 -right-0.5 ring-2 ring-white dark:ring-[#1C1C1E]" />
+                <span className="w-2 h-2 rounded-full bg-amber-500 absolute -top-0.5 -right-0.5 ring-2 ring-white dark:ring-[#1C1C1E]" />
               )}
             </div>
             <span className="text-[10px] tracking-tight mt-0.5 leading-none">
@@ -80,7 +93,6 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({ onOpenMobileMenu }) 
         );
       })}
 
-      {/* 5th Tab: Menu Lengkap (Opens Mobile Nav Drawer) */}
       <button
         type="button"
         onClick={() => {
@@ -93,7 +105,7 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({ onOpenMobileMenu }) 
           <Menu className="w-5 h-5" />
         </div>
         <span className="text-[10px] tracking-tight mt-0.5 leading-none">
-          Semua Menu
+          Menu & RBAC
         </span>
       </button>
     </nav>

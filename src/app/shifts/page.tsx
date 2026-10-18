@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { Navbar } from "@/components/Navbar";
 import { useApotekStore } from "@/lib/store";
 import { formatRupiah } from "@/lib/utils";
@@ -43,11 +43,11 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useSwipeGesture } from "@/hooks/useSwipeGesture";
 import { soundEngine } from "@/lib/audio";
 
-export default function ShiftsPage() {
+function ShiftsPageContent() {
   const {
     currentShift,
     shiftsHistory,
@@ -72,6 +72,18 @@ export default function ShiftsPage() {
   const [isShiftHandoverOpen, setIsShiftHandoverOpen] = useState(false);
   const [isPettyCashOpen, setIsPettyCashOpen] = useState(false);
   const [pettyCashDefaultType, setPettyCashDefaultType] = useState<"PAID_IN" | "PAID_OUT">("PAID_OUT");
+
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab === "aktif") setActiveTab("ACTIVE");
+    else if (tab === "handover") setIsShiftHandoverOpen(true);
+    else if (tab === "riwayat") setActiveTab("HISTORY");
+    else if (tab === "pettycash") setActiveTab("PETTY_CASH");
+    else if (tab === "kalkulator") setActiveTab("COUNTER");
+    else if (tab === "rekon") setActiveTab("RECONCILIATION_LOG");
+  }, [searchParams]);
 
   // Report Modal states
   const [selectedReportShift, setSelectedReportShift] = useState<CashierShift | null>(null);
@@ -174,60 +186,36 @@ export default function ShiftsPage() {
       <Navbar />
 
       {/* Page Title & Context Header */}
-      <div className="w-full max-w-full bg-white dark:bg-[#1C1C1E] border-b border-black/[0.06] dark:border-white/[0.08] px-3 sm:px-6 py-3.5 sm:py-5">
-        <div className="w-full max-w-full flex items-center justify-between gap-2 sm:gap-4">
+      <div className="w-full max-w-full bg-white dark:bg-[#1C1C1E] border-b border-black/[0.06] dark:border-white/[0.08] px-4 sm:px-6 py-4 sm:py-5">
+        <div className="w-full max-w-full flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="min-w-0">
-            <div className="flex items-center gap-1.5 sm:gap-2">
+            <div className="flex items-center gap-2">
               <span className="p-1.5 rounded-[9px] bg-[#008B94]/10 text-[#008B94] shrink-0">
                 <Wallet className="w-4 h-4 sm:w-5 sm:h-5" />
               </span>
               <h1 className="text-[17px] sm:text-[20px] font-bold tracking-tight text-[#1C1C1E] dark:text-white truncate">
-                <span className="sm:hidden">Shift & Kas</span>
-                <span className="hidden sm:inline">Kelola Shift & Rekonsiliasi Kas Laci</span>
+                Kelola Shift & Rekonsiliasi Kas Laci
               </h1>
-              <span className="hidden sm:inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#008B94]/15 text-[#008B94] shrink-0">
-                {APOTEK_KERSO_WARAS_INFO.name}
-              </span>
             </div>
             <p className="hidden sm:block text-[12px] text-[#8E8E93] mt-0.5">
-              Pencatatan kas laci, mutasi kas kecil, dan rekonsiliasi shift.
+              Pencatatan modal kasir, pengeluaran kas kecil operasional, dan berita acara serah terima shift.
             </p>
           </div>
 
-          {/* DESKTOP Quick Header Actions (Visible on sm+) */}
-          <div className="hidden sm:flex items-center gap-2 sm:gap-2.5 shrink-0">
-            {isOwnerOrAdmin && (
-              <Link
-                href="/analytics"
-                title="Buka Dashboard Analitik Pendapatan & Laporan Keuangan"
-                className="min-h-[40px] px-3 sm:px-3.5 py-2 rounded-[12px] bg-teal-50 dark:bg-teal-950/50 hover:bg-teal-100 text-[#008B94] dark:text-teal-300 border border-teal-200 dark:border-teal-800 text-[12px] font-semibold flex items-center gap-1.5 transition-all shadow-sm shrink-0 whitespace-nowrap"
-              >
-                <TrendingUp className="w-4 h-4" />
-                <span>Analitik</span>
-              </Link>
-            )}
+          {/* DESKTOP Quick Header Actions */}
+          <div className="hidden sm:flex items-center gap-2 shrink-0">
             {isShiftActive ? (
               <>
-                <button
-                  type="button"
-                  onClick={handleOpenXReport}
-                  className="min-h-[40px] px-3 sm:px-3.5 py-2 rounded-[12px] bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-[#1C1C1E] dark:text-white text-[12px] font-semibold flex items-center gap-1.5 transition-all shrink-0 whitespace-nowrap"
-                  title="Cetak X-Report (Bacaan sementara kasir tanpa mereset angka)"
-                >
-                  <FileCheck2 className="w-4 h-4 text-blue-600" />
-                  <span>X-Report</span>
-                </button>
-
                 <button
                   type="button"
                   onClick={() => {
                     setPettyCashDefaultType("PAID_OUT");
                     setIsPettyCashOpen(true);
                   }}
-                  className="min-h-[40px] px-3 sm:px-3.5 py-2 rounded-[12px] bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900/50 text-[12px] font-semibold flex items-center gap-1.5 transition-all shrink-0 whitespace-nowrap"
+                  className="min-h-[38px] px-3.5 py-2 rounded-[10px] bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900/50 text-[12px] font-semibold flex items-center gap-1.5 transition-all shrink-0 whitespace-nowrap"
                 >
-                  <ArrowUpRight className="w-4 h-4" />
-                  <span>Kas Keluar</span>
+                  <ArrowUpRight className="w-4 h-4 shrink-0" />
+                  <span>Catat Kas Keluar</span>
                 </button>
 
                 <button
@@ -236,47 +224,35 @@ export default function ShiftsPage() {
                     setPettyCashDefaultType("PAID_IN");
                     setIsPettyCashOpen(true);
                   }}
-                  className="min-h-[40px] px-3 sm:px-3.5 py-2 rounded-[12px] bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/50 text-[12px] font-semibold flex items-center gap-1.5 transition-all shrink-0 whitespace-nowrap"
+                  className="min-h-[38px] px-3.5 py-2 rounded-[10px] bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/50 text-[12px] font-semibold flex items-center gap-1.5 transition-all shrink-0 whitespace-nowrap"
                 >
-                  <ArrowDownLeft className="w-4 h-4" />
-                  <span>Kas Masuk</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    soundEngine.playKeyTap();
-                    setIsShiftHandoverOpen(true);
-                  }}
-                  className="min-h-[40px] px-3 sm:px-3.5 py-2 rounded-[12px] bg-teal-50 dark:bg-teal-950/40 hover:bg-teal-100 text-[#008B94] dark:text-teal-300 border border-teal-200 dark:border-teal-800 text-[12px] font-semibold flex items-center gap-1.5 transition-all shadow-sm shrink-0 whitespace-nowrap"
-                  title="Serah Terima & Ganti Shift Kasir"
-                >
-                  <ArrowRightLeft className="w-4 h-4" />
-                  <span>Ganti Shift</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setIsShiftCloseOpen(true)}
-                  className="min-h-[40px] px-3.5 sm:px-4 py-2 rounded-[12px] bg-rose-600 hover:bg-rose-700 text-white text-[12px] font-semibold flex items-center gap-1.5 transition-all shadow-sm shrink-0 whitespace-nowrap"
-                >
-                  <Lock className="w-4 h-4" />
-                  <span>Tutup Shift</span>
+                  <ArrowDownLeft className="w-4 h-4 shrink-0" />
+                  <span>Catat Kas Masuk</span>
                 </button>
               </>
             ) : (
               <button
                 type="button"
                 onClick={() => setIsShiftOpenOpen(true)}
-                className="min-h-[40px] px-4 py-2 rounded-[12px] bg-[#008B94] hover:bg-[#00767E] text-white text-[12px] font-semibold flex items-center gap-1.5 transition-all shadow-sm shrink-0 whitespace-nowrap"
+                className="min-h-[38px] px-4 py-2 rounded-[10px] bg-[#008B94] hover:bg-[#00767E] text-white text-[12px] font-semibold flex items-center gap-1.5 transition-all shadow-sm shrink-0 whitespace-nowrap"
               >
-                <PlayCircle className="w-4 h-4" />
-                <span>Buka Shift</span>
+                <PlayCircle className="w-4 h-4 shrink-0" />
+                <span>Buka Shift Kasir</span>
               </button>
+            )}
+            {isOwnerOrAdmin && (
+              <Link
+                href="/analytics"
+                title="Buka Laporan Keuangan & Laba Rugi"
+                className="min-h-[38px] px-3.5 py-2 rounded-[10px] bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 text-[#1C1C1E] dark:text-white text-[12px] font-semibold flex items-center gap-1.5 transition-all shrink-0 whitespace-nowrap"
+              >
+                <TrendingUp className="w-4 h-4 text-[#008B94] shrink-0" />
+                <span>Laporan Keuangan</span>
+              </Link>
             )}
           </div>
 
-          {/* MOBILE Minimalist Action Bar (Apple HIG Single-Line Zero-Clutter) */}
+          {/* MOBILE Minimalist Action Bar */}
           <div className="sm:hidden flex items-center gap-1.5 shrink-0">
             {isShiftActive ? (
               <>
@@ -286,11 +262,11 @@ export default function ShiftsPage() {
                     soundEngine.playKeyTap();
                     setIsShiftHandoverOpen(true);
                   }}
-                  className="h-8 px-2 rounded-[9px] bg-teal-50 dark:bg-teal-950/40 text-[#008B94] dark:text-teal-300 border border-teal-200 dark:border-teal-800 text-[11px] font-semibold flex items-center gap-1 active:scale-95 transition-all shrink-0"
+                  className="h-8 px-2.5 rounded-[9px] bg-teal-50 dark:bg-teal-950/40 text-[#008B94] dark:text-teal-300 border border-teal-200 dark:border-teal-800 text-[11px] font-semibold flex items-center gap-1 active:scale-95 transition-all shrink-0 whitespace-nowrap"
                   title="Ganti Shift"
                 >
-                  <ArrowRightLeft className="w-3.5 h-3.5" />
-                  <span>Ganti</span>
+                  <ArrowRightLeft className="w-3.5 h-3.5 shrink-0" />
+                  <span>Ganti Shift</span>
                 </button>
 
                 <button
@@ -300,10 +276,10 @@ export default function ShiftsPage() {
                     setPettyCashDefaultType("PAID_OUT");
                     setIsPettyCashOpen(true);
                   }}
-                  className="h-8 px-2.5 rounded-[9px] bg-neutral-100 dark:bg-neutral-800 text-[#1C1C1E] dark:text-white border border-neutral-200 dark:border-neutral-700 text-[11px] font-semibold flex items-center gap-1 active:scale-95 transition-all shrink-0"
+                  className="h-8 px-2.5 rounded-[9px] bg-neutral-100 dark:bg-neutral-800 text-[#1C1C1E] dark:text-white border border-neutral-200 dark:border-neutral-700 text-[11px] font-semibold flex items-center gap-1 active:scale-95 transition-all shrink-0 whitespace-nowrap"
                   title="Kas Keluar / Kas Masuk"
                 >
-                  <Coins className="w-3.5 h-3.5 text-[#008B94]" />
+                  <Coins className="w-3.5 h-3.5 text-[#008B94] shrink-0" />
                   <span>Kas Kecil</span>
                 </button>
 
@@ -313,9 +289,9 @@ export default function ShiftsPage() {
                     soundEngine.playKeyTap();
                     setIsShiftCloseOpen(true);
                   }}
-                  className="h-8 px-2.5 rounded-[9px] bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-semibold flex items-center gap-1 active:scale-95 transition-all shadow-sm shrink-0"
+                  className="h-8 px-2.5 rounded-[9px] bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-semibold flex items-center gap-1 active:scale-95 transition-all shadow-sm shrink-0 whitespace-nowrap"
                 >
-                  <Lock className="w-3.5 h-3.5" />
+                  <Lock className="w-3.5 h-3.5 shrink-0" />
                   <span>Tutup</span>
                 </button>
 
@@ -326,7 +302,7 @@ export default function ShiftsPage() {
                     setIsMobileActionsOpen(true);
                   }}
                   className="h-8 w-8 rounded-[9px] bg-neutral-100 dark:bg-neutral-800 text-[#1C1C1E] dark:text-white border border-neutral-200 dark:border-neutral-700 flex items-center justify-center active:scale-95 transition-all shrink-0"
-                  title="Aksi Lainnya (X-Report, Analitik)"
+                  title="Menu Lainnya"
                 >
                   <MoreHorizontal className="w-4 h-4" />
                 </button>
@@ -338,9 +314,9 @@ export default function ShiftsPage() {
                   soundEngine.playKeyTap();
                   setIsShiftOpenOpen(true);
                 }}
-                className="h-8 px-3 rounded-[9px] bg-[#008B94] text-white text-[11px] font-semibold flex items-center gap-1 active:scale-95 transition-all shadow-sm shrink-0"
+                className="h-8 px-3 rounded-[9px] bg-[#008B94] text-white text-[11px] font-semibold flex items-center gap-1 active:scale-95 transition-all shadow-sm shrink-0 whitespace-nowrap"
               >
-                <PlayCircle className="w-3.5 h-3.5" />
+                <PlayCircle className="w-3.5 h-3.5 shrink-0" />
                 <span>Buka Shift</span>
               </button>
             )}
@@ -351,9 +327,9 @@ export default function ShiftsPage() {
         <div className="w-full max-w-full mt-3 sm:mt-4 flex items-center gap-1.5 border-t border-neutral-100 dark:border-neutral-800 pt-2.5 sm:pt-3 overflow-x-auto no-scrollbar touch-pan-x">
           {[
             { id: "ACTIVE", label: "Shift Aktif", icon: Wallet },
-            { id: "RECONCILIATION_LOG", label: "Rekonsiliasi", icon: ShieldAlert },
-            { id: "PETTY_CASH", label: "Kas Kecil", icon: ArrowUpRight },
-            { id: "COUNTER", label: "Pecahan Uang", icon: Calculator },
+            { id: "RECONCILIATION_LOG", label: "Rekonsiliasi Kas", icon: ShieldAlert },
+            { id: "PETTY_CASH", label: "Buku Kas Kecil", icon: ArrowUpRight },
+            { id: "COUNTER", label: "Kalkulator Pecahan", icon: Calculator },
             { id: "HISTORY", label: "Arsip Shift", icon: History },
           ].map((tab) => {
             const Icon = tab.icon;
@@ -372,25 +348,18 @@ export default function ShiftsPage() {
                     : "text-[#636366] hover:text-[#1C1C1E] dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800"
                 }`}
               >
-                <Icon className="w-3.5 h-3.5" />
+                <Icon className="w-3.5 h-3.5 shrink-0" />
                 <span>{tab.label}</span>
               </button>
             );
           })}
-        </div>
-
-        {/* Mobile Swipe Hint Indicator */}
-        <div className="sm:hidden text-center text-[10px] text-neutral-400 dark:text-neutral-500 pt-1.5 flex items-center justify-center gap-1 select-none">
-          <span>&larr;</span>
-          <span>Geser layar ke kiri / kanan untuk ganti tab</span>
-          <span>&rarr;</span>
         </div>
       </div>
 
       {/* Main Content Area with Swipe Gesture Support */}
       <main
         {...swipeHandlers}
-        className="flex-1 w-full max-w-full min-w-0 p-3 sm:p-6 lg:p-8 touch-pan-y"
+        className="flex-1 w-full max-w-full min-w-0 p-3 sm:p-6 lg:p-7 touch-pan-y"
       >
         {/* TAB 1: ACTIVE SHIFT OVERVIEW */}
         {activeTab === "ACTIVE" && (
@@ -398,20 +367,20 @@ export default function ShiftsPage() {
             {isShiftActive ? (
               <>
                 {/* Active Shift Status Banner */}
-                <div className="p-3 sm:p-4 rounded-[16px] sm:rounded-[18px] bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/[0.08] flex items-center justify-between gap-3 shadow-sm">
+                <div className="p-3.5 sm:p-4 rounded-[14px] bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/[0.08] flex flex-wrap items-center justify-between gap-3 shadow-sm">
                   <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
                     <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <h2 className="text-[14px] sm:text-[16px] font-bold text-[#1C1C1E] dark:text-white truncate">
+                        <h2 className="text-[14px] sm:text-[16px] font-bold text-[#1C1C1E] dark:text-white whitespace-nowrap">
                           Shift {currentShift.shiftNumber} Sedang Aktif
                         </h2>
-                        <span className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 shrink-0">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 shrink-0 whitespace-nowrap">
                           {currentShift.terminalId}
                         </span>
                       </div>
                       <p className="text-[11px] sm:text-[12px] text-[#8E8E93] truncate">
-                        Kasir: <strong className="text-[#1C1C1E] dark:text-white">{currentShift.cashierName}</strong> &bull; Buka: {new Date(currentShift.startTime).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })} WIB
+                        Kasir bertugas: <strong className="text-[#1C1C1E] dark:text-white">{currentShift.cashierName}</strong> &bull; Mulai pukul {new Date(currentShift.startTime).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })} WIB
                       </p>
                     </div>
                   </div>
@@ -420,10 +389,10 @@ export default function ShiftsPage() {
                     <button
                       type="button"
                       onClick={handleOpenXReport}
-                      className="px-3.5 py-1.5 rounded-[10px] bg-white dark:bg-[#2C2C2E] border border-black/[0.08] dark:border-white/[0.08] text-[12px] font-semibold text-[#1C1C1E] dark:text-white hover:bg-neutral-50 flex items-center gap-1.5 shadow-sm"
+                      className="px-3.5 py-2 rounded-[10px] bg-white dark:bg-[#2C2C2E] border border-black/[0.08] dark:border-white/[0.08] text-[12px] font-semibold text-[#1C1C1E] dark:text-white hover:bg-neutral-50 flex items-center gap-1.5 shadow-sm whitespace-nowrap shrink-0"
                     >
-                      <FileCheck2 className="w-3.5 h-3.5 text-blue-600" />
-                      <span>Lihat X-Report</span>
+                      <FileCheck2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                      <span>Cetak Ringkasan Shift</span>
                     </button>
                     <button
                       type="button"
@@ -431,32 +400,32 @@ export default function ShiftsPage() {
                         soundEngine.playKeyTap();
                         setIsShiftHandoverOpen(true);
                       }}
-                      className="px-3.5 py-1.5 rounded-[10px] bg-teal-50 dark:bg-teal-950/40 hover:bg-teal-100 text-[#008B94] dark:text-teal-300 border border-teal-200 dark:border-teal-800 text-[12px] font-semibold flex items-center gap-1.5 shadow-sm"
+                      className="px-3.5 py-2 rounded-[10px] bg-teal-50 dark:bg-teal-950/40 hover:bg-teal-100 text-[#008B94] dark:text-teal-300 border border-teal-200 dark:border-teal-800 text-[12px] font-semibold flex items-center gap-1.5 shadow-sm whitespace-nowrap shrink-0"
                     >
-                      <ArrowRightLeft className="w-3.5 h-3.5" />
-                      <span>Ganti Shift</span>
+                      <ArrowRightLeft className="w-3.5 h-3.5 shrink-0" />
+                      <span>Serah Terima Shift</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setIsShiftCloseOpen(true)}
-                      className="px-3.5 py-1.5 rounded-[10px] bg-rose-600 hover:bg-rose-700 text-white text-[12px] font-semibold flex items-center gap-1.5 shadow-sm"
+                      className="px-3.5 py-2 rounded-[10px] bg-rose-600 hover:bg-rose-700 text-white text-[12px] font-semibold flex items-center gap-1.5 shadow-sm whitespace-nowrap shrink-0"
                     >
-                      <Lock className="w-3.5 h-3.5" />
-                      <span>Tutup Kasir</span>
+                      <Lock className="w-3.5 h-3.5 shrink-0" />
+                      <span>Tutup Shift Kasir</span>
                     </button>
                   </div>
                 </div>
 
                 {/* Handover Notice Banner if active shift was handed over */}
                 {currentShift.handoverLog && (
-                  <div className="p-3.5 rounded-[16px] bg-teal-50/70 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-900/50 flex items-center justify-between gap-3 text-[12px]">
+                  <div className="p-3.5 rounded-[14px] bg-teal-50/70 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-900/50 flex items-center justify-between gap-3 text-[12px]">
                     <div className="flex items-center gap-2 text-teal-900 dark:text-teal-200">
                       <ArrowRightLeft className="w-4 h-4 text-[#008B94] shrink-0" />
                       <span>
-                        Shift ini aktif hasil serah terima dari <strong>{currentShift.handoverLog.previousCashierName}</strong> pada {new Date(currentShift.handoverLog.handoverTime).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })} WIB. Setoran ke brankas: {formatRupiah(currentShift.handoverLog.cashDroppedToVault)}.
+                        Shift ini dilanjutkan melalui serah terima dari <strong>{currentShift.handoverLog.previousCashierName}</strong> pada pukul {new Date(currentShift.handoverLog.handoverTime).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })} WIB. Setoran ke brankas: {formatRupiah(currentShift.handoverLog.cashDroppedToVault)}.
                       </span>
                     </div>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-200/50 dark:bg-teal-900 text-[#008B94] dark:text-teal-300 shrink-0">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-teal-200/50 dark:bg-teal-900 text-[#008B94] dark:text-teal-300 shrink-0 whitespace-nowrap">
                       Serah Terima Resmi
                     </span>
                   </div>
@@ -465,80 +434,80 @@ export default function ShiftsPage() {
                 {/* 6 Real-time Financial KPI Cards */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
                   {/* 1. Modal Awal */}
-                  <div className="p-3.5 rounded-[16px] bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/[0.08] shadow-sm">
-                    <span className="text-[11px] font-semibold uppercase tracking-wider text-[#8E8E93] block mb-1 truncate">
+                  <div className="p-3.5 rounded-[14px] bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/[0.08] shadow-sm">
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-[#8E8E93] block mb-1 whitespace-nowrap">
                       Modal Awal Laci
                     </span>
-                    <div className="text-[17px] font-bold text-[#1C1C1E] dark:text-white tabular-nums truncate">
+                    <div className="text-[17px] font-bold text-[#1C1C1E] dark:text-white tabular-nums whitespace-nowrap">
                       {formatRupiah(currentShift.openingCash)}
                     </div>
-                    <span className="text-[10px] text-[#8E8E93] mt-1 block">
-                      Kas dasar kembalian
+                    <span className="text-[11px] text-[#8E8E93] mt-1 block whitespace-nowrap">
+                      Uang dasar kembalian
                     </span>
                   </div>
 
                   {/* 2. Penjualan Tunai */}
-                  <div className="p-3.5 rounded-[16px] bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/[0.08] shadow-sm">
-                    <span className="text-[11px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block mb-1 truncate">
+                  <div className="p-3.5 rounded-[14px] bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/[0.08] shadow-sm">
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block mb-1 whitespace-nowrap">
                       Penjualan Tunai
                     </span>
-                    <div className="text-[17px] font-bold text-emerald-600 dark:text-emerald-400 tabular-nums truncate">
+                    <div className="text-[17px] font-bold text-emerald-600 dark:text-emerald-400 tabular-nums whitespace-nowrap">
                       {formatRupiah(currentShift.cashSalesTotal)}
                     </div>
-                    <span className="text-[10px] text-[#8E8E93] mt-1 block">
-                      {currentShift.totalTransactionsCount} transaksi
+                    <span className="text-[11px] text-[#8E8E93] mt-1 block whitespace-nowrap">
+                      {currentShift.totalTransactionsCount} struk transaksi
                     </span>
                   </div>
 
                   {/* 3. Non-Tunai QRIS / EDC / Transfer */}
-                  <div className="p-3.5 rounded-[16px] bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/[0.08] shadow-sm">
-                    <span className="text-[11px] font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400 block mb-1 truncate">
-                      Non-Tunai Bank
+                  <div className="p-3.5 rounded-[14px] bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/[0.08] shadow-sm">
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400 block mb-1 whitespace-nowrap">
+                      Penjualan Non-Tunai
                     </span>
-                    <div className="text-[17px] font-bold text-blue-600 dark:text-blue-400 tabular-nums truncate">
+                    <div className="text-[17px] font-bold text-blue-600 dark:text-blue-400 tabular-nums whitespace-nowrap">
                       {formatRupiah(currentShift.nonCashSalesTotal || (currentShift.qrisSalesTotal + currentShift.edcSalesTotal))}
                     </div>
-                    <span className="text-[10px] text-[#8E8E93] mt-1 block">
-                      QRIS, EDC & Transfer
+                    <span className="text-[11px] text-[#8E8E93] mt-1 block whitespace-nowrap">
+                      QRIS, Kartu Debit & Transfer
                     </span>
                   </div>
 
                   {/* 4. Kas Masuk / Topup */}
-                  <div className="p-3.5 rounded-[16px] bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/[0.08] shadow-sm">
-                    <span className="text-[11px] font-semibold uppercase tracking-wider text-teal-600 dark:text-teal-400 block mb-1 truncate">
-                      Kas Masuk (In)
+                  <div className="p-3.5 rounded-[14px] bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/[0.08] shadow-sm">
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-teal-600 dark:text-teal-400 block mb-1 whitespace-nowrap">
+                      Kas Masuk
                     </span>
-                    <div className="text-[17px] font-bold text-teal-600 dark:text-teal-400 tabular-nums truncate">
+                    <div className="text-[17px] font-bold text-teal-600 dark:text-teal-400 tabular-nums whitespace-nowrap">
                       {formatRupiah(currentShift.cashInTotal)}
                     </div>
-                    <span className="text-[10px] text-[#8E8E93] mt-1 block">
-                      Tambahan float
+                    <span className="text-[11px] text-[#8E8E93] mt-1 block whitespace-nowrap">
+                      Tambahan uang kembalian
                     </span>
                   </div>
 
                   {/* 5. Kas Keluar Operasional */}
-                  <div className="p-3.5 rounded-[16px] bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/[0.08] shadow-sm">
-                    <span className="text-[11px] font-semibold uppercase tracking-wider text-rose-600 dark:text-rose-400 block mb-1 truncate">
-                      Kas Keluar (Out)
+                  <div className="p-3.5 rounded-[14px] bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/[0.08] shadow-sm">
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-rose-600 dark:text-rose-400 block mb-1 whitespace-nowrap">
+                      Kas Keluar
                     </span>
-                    <div className="text-[17px] font-bold text-rose-600 dark:text-rose-400 tabular-nums truncate">
+                    <div className="text-[17px] font-bold text-rose-600 dark:text-rose-400 tabular-nums whitespace-nowrap">
                       -{formatRupiah(currentShift.cashOutTotal)}
                     </div>
-                    <span className="text-[10px] text-[#8E8E93] mt-1 block">
-                      Petty cash
+                    <span className="text-[11px] text-[#8E8E93] mt-1 block whitespace-nowrap">
+                      Pengeluaran kas kecil
                     </span>
                   </div>
 
                   {/* 6. Ekspektasi Saldo Laci */}
-                  <div className="p-3.5 rounded-[16px] bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300/60 dark:border-emerald-800/40 shadow-sm">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300 block mb-1 truncate">
+                  <div className="p-3.5 rounded-[14px] bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300/60 dark:border-emerald-800/40 shadow-sm">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300 block mb-1 whitespace-nowrap">
                       Saldo Laci Sistem
                     </span>
-                    <div className="text-[18px] font-black text-emerald-700 dark:text-emerald-300 tabular-nums truncate">
+                    <div className="text-[18px] font-black text-emerald-700 dark:text-emerald-300 tabular-nums whitespace-nowrap">
                       {formatRupiah(expectedDrawerCash)}
                     </div>
-                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-1 block">
-                      Wajib klop fisik
+                    <span className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-1 block whitespace-nowrap">
+                      Harus sesuai uang fisik
                     </span>
                   </div>
                 </div>
@@ -546,14 +515,14 @@ export default function ShiftsPage() {
                 {/* Split Two-Column Section: Petty Cash Recent + Quick Denomination Preview */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                   {/* Left Column: Recent Petty Cash Movements (7 cols) */}
-                  <div className="lg:col-span-7 bg-white dark:bg-[#1C1C1E] p-6 rounded-[22px] border border-black/[0.06] dark:border-white/[0.08] shadow-[0_2px_8px_rgba(0,0,0,0.02)]">
-                    <div className="flex items-center justify-between mb-4">
+                  <div className="lg:col-span-7 bg-white dark:bg-[#1C1C1E] p-5 sm:p-6 rounded-[16px] border border-black/[0.06] dark:border-white/[0.08] shadow-sm">
+                    <div className="flex items-center justify-between gap-3 mb-4">
                       <div>
                         <h3 className="text-[15px] font-bold text-[#1C1C1E] dark:text-white">
-                          Mutasi Kas Kecil Shift Ini
+                          Catatan Kas Kecil Shift Ini
                         </h3>
                         <p className="text-[11px] text-[#8E8E93]">
-                          Pencatatan es pendingin vaksin, kertas thermal roll, ongkir obat
+                          Pengeluaran operasional laci seperti kertas struk, es pendingin vaksin, atau kurir obat
                         </p>
                       </div>
                       <button
@@ -562,7 +531,7 @@ export default function ShiftsPage() {
                           setPettyCashDefaultType("PAID_OUT");
                           setIsPettyCashOpen(true);
                         }}
-                        className="px-3 py-1.5 rounded-[10px] bg-[#007AFF] hover:bg-[#0062CC] text-white text-[11px] font-semibold flex items-center gap-1 shadow-sm"
+                        className="px-3 py-1.5 rounded-[10px] bg-[#008B94] hover:bg-[#00767E] text-white text-[11px] font-semibold flex items-center gap-1 shadow-sm whitespace-nowrap shrink-0"
                       >
                         + Catat Kas Baru
                       </button>
@@ -573,11 +542,11 @@ export default function ShiftsPage() {
                         {currentShift.pettyCashMovements.map((item) => (
                           <div
                             key={item.id}
-                            className="p-3 rounded-[14px] bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-black/[0.04] flex items-center justify-between gap-3"
+                            className="p-3 rounded-[12px] bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-black/[0.04] flex items-center justify-between gap-3"
                           >
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-3 min-w-0">
                               <span
-                                className={`p-2 rounded-[10px] ${
+                                className={`p-2 rounded-[10px] shrink-0 ${
                                   item.type === "PAID_OUT"
                                     ? "bg-rose-100 text-rose-600 dark:bg-rose-950 dark:text-rose-400"
                                     : "bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400"
@@ -589,13 +558,13 @@ export default function ShiftsPage() {
                                   <ArrowDownLeft className="w-4 h-4" />
                                 )}
                               </span>
-                              <div>
-                                <div className="flex items-center gap-2">
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
                                   <h4 className="text-[12px] font-bold text-[#1C1C1E] dark:text-white">
                                     {item.categoryLabel}
                                   </h4>
-                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-black/[0.05] dark:bg-white/[0.1] text-[#8E8E93]">
-                                    {new Date(item.timestamp).toLocaleTimeString("id-ID")}
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-black/[0.05] dark:bg-white/[0.1] text-[#8E8E93] whitespace-nowrap">
+                                    {new Date(item.timestamp).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })} WIB
                                   </span>
                                 </div>
                                 <p className="text-[11px] text-[#636366] dark:text-[#AEAEB2] mt-0.5">
@@ -604,9 +573,9 @@ export default function ShiftsPage() {
                               </div>
                             </div>
 
-                            <div className="text-right">
+                            <div className="text-right shrink-0 whitespace-nowrap">
                               <span
-                                className={`text-[13px] font-bold tabular-nums block ${
+                                className={`text-[13px] font-bold tabular-nums block whitespace-nowrap ${
                                   item.type === "PAID_OUT"
                                     ? "text-rose-600 dark:text-rose-400"
                                     : "text-emerald-600 dark:text-emerald-400"
@@ -615,7 +584,7 @@ export default function ShiftsPage() {
                                 {item.type === "PAID_OUT" ? "-" : "+"}
                                 {formatRupiah(item.amount)}
                               </span>
-                              <span className="text-[10px] text-[#8E8E93]">
+                              <span className="text-[10px] text-[#8E8E93] block whitespace-nowrap">
                                 oleh {item.recordedBy}
                               </span>
                             </div>
@@ -623,10 +592,10 @@ export default function ShiftsPage() {
                         ))}
                       </div>
                     ) : (
-                      <div className="p-8 text-center text-[#8E8E93] border border-dashed border-neutral-300 dark:border-neutral-800 rounded-[16px]">
-                        <p className="text-[13px]">Belum ada mutasi kas kecil pada shift ini.</p>
+                      <div className="p-8 text-center text-[#8E8E93] border border-dashed border-neutral-300 dark:border-neutral-800 rounded-[14px]">
+                        <p className="text-[13px]">Belum ada catatan kas kecil pada shift ini.</p>
                         <p className="text-[11px] mt-1">
-                          Klik "+ Catat Kas Baru" jika kasir mengeluarkan uang untuk es batu vaksin, kertas thermal roll, atau ongkir grab cito.
+                          Klik &ldquo;+ Catat Kas Baru&rdquo; jika kasir mengeluarkan uang laci untuk keperluan operasional apotek.
                         </p>
                       </div>
                     )}
@@ -635,24 +604,24 @@ export default function ShiftsPage() {
                   {/* Right Column: Denomination Counting Guide & X-Report Card (5 cols) */}
                   <div className="lg:col-span-5 space-y-4">
                     {/* X-Report Spot Check Card */}
-                    <div className="bg-white dark:bg-[#1C1C1E] p-5 rounded-[20px] border border-black/[0.06] dark:border-white/[0.08] shadow-sm">
+                    <div className="bg-white dark:bg-[#1C1C1E] p-5 rounded-[16px] border border-black/[0.06] dark:border-white/[0.08] shadow-sm">
                       <div className="flex items-center gap-2.5 mb-3">
-                        <span className="p-2 rounded-[10px] bg-blue-100 dark:bg-blue-950 text-blue-600">
+                        <span className="p-2 rounded-[10px] bg-blue-100 dark:bg-blue-950 text-blue-600 shrink-0">
                           <FileCheck2 className="w-4 h-4" />
                         </span>
                         <div>
                           <h3 className="text-[14px] font-bold text-[#1C1C1E] dark:text-white">
-                            Cek Kas Laci (X-Report)
+                            Ringkasan Kas Sementara (X-Report)
                           </h3>
                           <p className="text-[11px] text-[#8E8E93]">
-                            Audit kas tengah shift tanpa mereset angka akumulator
+                            Cek posisi uang laci di tengah shift tanpa menutup kasir
                           </p>
                         </div>
                       </div>
 
                       <div className="p-3 bg-neutral-50 dark:bg-neutral-900 rounded-[12px] text-[11px] text-[#8E8E93] mb-4 space-y-1">
                         <div className="flex justify-between">
-                          <span>Total Cetak X-Report:</span>
+                          <span>Jumlah Pengecekan Shift Ini:</span>
                           <span className="font-semibold text-[#1C1C1E] dark:text-white">
                             {currentShift.xReportsCount || 0} kali
                           </span>
@@ -661,7 +630,7 @@ export default function ShiftsPage() {
                           <div className="flex justify-between">
                             <span>Pemeriksaan Terakhir:</span>
                             <span className="font-semibold text-[#1C1C1E] dark:text-white">
-                              {new Date(currentShift.lastXReportTime).toLocaleTimeString("id-ID")} WIB
+                              {new Date(currentShift.lastXReportTime).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })} WIB
                             </span>
                           </div>
                         )}
@@ -670,25 +639,25 @@ export default function ShiftsPage() {
                       <button
                         type="button"
                         onClick={handleOpenXReport}
-                        className="w-full py-2.5 rounded-[12px] bg-blue-600 hover:bg-blue-700 text-white text-[12px] font-semibold flex items-center justify-center gap-2 shadow-sm transition-all"
+                        className="w-full py-2.5 rounded-[10px] bg-blue-600 hover:bg-blue-700 text-white text-[12px] font-semibold flex items-center justify-center gap-2 shadow-sm transition-all whitespace-nowrap"
                       >
-                        <Printer className="w-4 h-4" />
-                        <span>Buka & Cetak X-Report</span>
+                        <Printer className="w-4 h-4 shrink-0" />
+                        <span>Buka & Cetak Ringkasan Shift</span>
                       </button>
                     </div>
 
                     {/* Quick Calculator Shortcut Card */}
-                    <div className="bg-white dark:bg-[#1C1C1E] p-5 rounded-[20px] border border-black/[0.06] dark:border-white/[0.08] shadow-sm">
+                    <div className="bg-white dark:bg-[#1C1C1E] p-5 rounded-[16px] border border-black/[0.06] dark:border-white/[0.08] shadow-sm">
                       <div className="flex items-center gap-2.5 mb-3">
-                        <span className="p-2 rounded-[10px] bg-amber-100 dark:bg-amber-950 text-amber-700">
+                        <span className="p-2 rounded-[10px] bg-amber-100 dark:bg-amber-950 text-amber-700 shrink-0">
                           <Calculator className="w-4 h-4" />
                         </span>
                         <div>
                           <h3 className="text-[14px] font-bold text-[#1C1C1E] dark:text-white">
-                            Hitung Fisik Uang (Denominasi)
+                            Kalkulator Pecahan Uang
                           </h3>
                           <p className="text-[11px] text-[#8E8E93]">
-                            Lembar hitung uang kertas & uang logam laci
+                            Alat bantu hitung lembar uang kertas & logam di laci kasir
                           </p>
                         </div>
                       </div>
@@ -696,9 +665,9 @@ export default function ShiftsPage() {
                       <button
                         type="button"
                         onClick={() => setActiveTab("COUNTER")}
-                        className="w-full py-2.5 rounded-[12px] bg-[#F5F5F7] dark:bg-[#2C2C2E] hover:bg-neutral-200 dark:hover:bg-neutral-700 text-[#1C1C1E] dark:text-white text-[12px] font-semibold flex items-center justify-center gap-2 transition-all"
+                        className="w-full py-2.5 rounded-[10px] bg-[#F5F5F7] dark:bg-[#2C2C2E] hover:bg-neutral-200 dark:hover:bg-neutral-700 text-[#1C1C1E] dark:text-white text-[12px] font-semibold flex items-center justify-center gap-2 transition-all whitespace-nowrap"
                       >
-                        <span>Buka Lembar Denominasi &rarr;</span>
+                        <span>Buka Kalkulator Pecahan &rarr;</span>
                       </button>
                     </div>
                   </div>
@@ -706,24 +675,24 @@ export default function ShiftsPage() {
               </>
             ) : (
               /* SHIFT IS CLOSED STATE */
-              <div className="max-w-xl mx-auto p-8 rounded-[24px] bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/[0.08] text-center shadow-lg my-12">
+              <div className="max-w-xl mx-auto p-8 rounded-[20px] bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/[0.08] text-center shadow-lg my-12">
                 <div className="w-14 h-14 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-600 flex items-center justify-center mx-auto mb-4">
                   <Wallet className="w-7 h-7" />
                 </div>
                 <h2 className="text-[18px] font-bold text-[#1C1C1E] dark:text-white">
-                  Kasir Belum Membuka Shift
+                  Shift Kasir Belum Dibuka
                 </h2>
                 <p className="text-[13px] text-[#8E8E93] mt-2 mb-6">
-                  Terminal kasir Apotek Kerso Waras saat ini dalam kondisi tertutup. Kasir yang bertugas wajib menghitung modal awal (float kas) dan membuka shift sebelum melayani transaksi POS.
+                  Laci kasir saat ini masih tertutup. Silakan hitung uang modal kembalian di laci dan buka shift sebelum melayani pembayaran pelanggan.
                 </p>
 
                 <button
                   type="button"
                   onClick={() => setIsShiftOpenOpen(true)}
-                  className="px-6 py-3 rounded-[14px] bg-[#34C759] hover:bg-[#2EB34F] text-white text-[14px] font-semibold inline-flex items-center gap-2 shadow-md transition-transform hover:scale-105"
+                  className="px-6 py-3 rounded-[12px] bg-[#008B94] hover:bg-[#00767E] text-white text-[14px] font-semibold inline-flex items-center gap-2 shadow-md transition-all whitespace-nowrap"
                 >
-                  <PlayCircle className="w-5 h-5" />
-                  <span>Buka Shift Sekarang (Modal Awal)</span>
+                  <PlayCircle className="w-5 h-5 shrink-0" />
+                  <span>Buka Shift Kasir Sekarang</span>
                 </button>
               </div>
             )}
@@ -735,23 +704,23 @@ export default function ShiftsPage() {
           <div className="space-y-6 animate-in fade-in duration-150">
             {/* KPI Summary Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="p-5 rounded-[20px] bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/[0.08] shadow-sm">
-                <div className="flex items-center justify-between text-[#8E8E93] text-[11px] font-bold uppercase tracking-wider mb-2">
-                  <span>Total Shift Direkonsiliasi</span>
-                  <History className="w-4 h-4 text-neutral-400" />
+              <div className="p-5 rounded-[16px] bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/[0.08] shadow-sm">
+                <div className="flex items-center justify-between text-[#8E8E93] text-[11px] font-bold uppercase tracking-wider mb-2 whitespace-nowrap">
+                  <span>Total Shift Ditutup</span>
+                  <History className="w-4 h-4 text-neutral-400 shrink-0" />
                 </div>
                 <div className="text-[26px] font-black text-[#1C1C1E] dark:text-white tabular-nums">
                   {shiftsHistory.length}
                 </div>
                 <p className="text-[11px] text-[#8E8E93] mt-1">
-                  Arsip penutupan laci & blind count
+                  Arsip penutupan laci & perhitungan fisik
                 </p>
               </div>
 
-              <div className="p-5 rounded-[20px] bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/[0.08] shadow-sm">
-                <div className="flex items-center justify-between text-[#8E8E93] text-[11px] font-bold uppercase tracking-wider mb-2">
+              <div className="p-5 rounded-[16px] bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/[0.08] shadow-sm">
+                <div className="flex items-center justify-between text-[#8E8E93] text-[11px] font-bold uppercase tracking-wider mb-2 whitespace-nowrap">
                   <span>Tingkat Akurasi Kasir</span>
-                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
                 </div>
                 <div className="text-[26px] font-black text-emerald-600 tabular-nums">
                   {shiftsHistory.length > 0
@@ -764,14 +733,14 @@ export default function ShiftsPage() {
                 </div>
                 <p className="text-[11px] text-[#8E8E93] mt-1">
                   {shiftsHistory.filter((s) => (s.cashDifference || 0) === 0).length} dari{" "}
-                  {shiftsHistory.length} shift kas klop sempurna
+                  {shiftsHistory.length} shift kas klop (Rp 0)
                 </p>
               </div>
 
-              <div className="p-5 rounded-[20px] bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/[0.08] shadow-sm">
-                <div className="flex items-center justify-between text-[#8E8E93] text-[11px] font-bold uppercase tracking-wider mb-2">
-                  <span>Netto Selisih Kas</span>
-                  <Coins className="w-4 h-4 text-amber-500" />
+              <div className="p-5 rounded-[16px] bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/[0.08] shadow-sm">
+                <div className="flex items-center justify-between text-[#8E8E93] text-[11px] font-bold uppercase tracking-wider mb-2 whitespace-nowrap">
+                  <span>Total Selisih Kas</span>
+                  <Coins className="w-4 h-4 text-amber-500 shrink-0" />
                 </div>
                 {(() => {
                   const netDiff = shiftsHistory.reduce(
@@ -780,7 +749,7 @@ export default function ShiftsPage() {
                   );
                   return (
                     <div
-                      className={`text-[26px] font-black tabular-nums font-mono ${
+                      className={`text-[26px] font-black tabular-nums font-mono whitespace-nowrap ${
                         netDiff === 0
                           ? "text-emerald-600"
                           : netDiff > 0
@@ -793,43 +762,43 @@ export default function ShiftsPage() {
                   );
                 })()}
                 <p className="text-[11px] text-[#8E8E93] mt-1">
-                  Akumulasi surplus (+) / minus (-) kasir
+                  Akumulasi selisih lebih (+) / kurang (-)
                 </p>
               </div>
 
-              <div className="p-5 rounded-[20px] bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/[0.08] shadow-sm">
-                <div className="flex items-center justify-between text-[#8E8E93] text-[11px] font-bold uppercase tracking-wider mb-2">
+              <div className="p-5 rounded-[16px] bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/[0.08] shadow-sm">
+                <div className="flex items-center justify-between text-[#8E8E93] text-[11px] font-bold uppercase tracking-wider mb-2 whitespace-nowrap">
                   <span>Otorisasi Supervisor</span>
-                  <KeyRound className="w-4 h-4 text-purple-500" />
+                  <KeyRound className="w-4 h-4 text-purple-500 shrink-0" />
                 </div>
-                <div className="text-[26px] font-black text-purple-600 tabular-nums">
-                  {shiftsHistory.filter((s) => s.supervisorAuth?.isAuthorized).length} Kasus
+                <div className="text-[26px] font-black text-purple-600 tabular-nums whitespace-nowrap">
+                  {shiftsHistory.filter((s) => s.supervisorAuth?.isAuthorized).length} Shift
                 </div>
                 <p className="text-[11px] text-[#8E8E93] mt-1">
-                  Disahkan via login PIN digital APJ/Owner
+                  Disahkan dengan PIN Apoteker / Pemilik
                 </p>
               </div>
             </div>
 
             {/* Filter & Search Bar */}
-            <div className="w-full max-w-full min-w-0 overflow-hidden bg-white dark:bg-[#1C1C1E] p-4 sm:p-5 rounded-[22px] border border-black/[0.06] dark:border-white/[0.08] shadow-sm space-y-4">
+            <div className="w-full max-w-full min-w-0 overflow-hidden bg-white dark:bg-[#1C1C1E] p-4 sm:p-5 rounded-[16px] border border-black/[0.06] dark:border-white/[0.08] shadow-sm space-y-4">
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 <div>
                   <h3 className="text-[16px] font-bold text-[#1C1C1E] dark:text-white flex items-center gap-2">
-                    <ShieldAlert className="w-4 h-4 text-teal-600" />
-                    <span>Log Audit Rekonsiliasi & Berita Acara Selisih Kas</span>
+                    <ShieldAlert className="w-4 h-4 text-teal-600 shrink-0" />
+                    <span>Catatan Rekonsiliasi & Berita Acara Selisih Kas</span>
                   </h3>
                   <p className="text-[12px] text-[#8E8E93]">
-                    Daftar resmi perbandingan uang fisik vs ekspektasi sistem per penutupan shift, riwayat login otorisasi PIN supervisor, dan surat pertanggungjawaban.
+                    Perbandingan uang fisik di laci dengan saldo sistem pada setiap penutupan shift.
                   </p>
                 </div>
 
                 {/* Status Switcher Buttons */}
-                <div className="flex items-center gap-1 bg-[#F5F5F7] dark:bg-[#2C2C2E] p-1 rounded-[12px] shrink-0">
+                <div className="flex items-center gap-1 bg-[#F5F5F7] dark:bg-[#2C2C2E] p-1 rounded-[10px] shrink-0">
                   <button
                     type="button"
                     onClick={() => setReconciliationFilter("ALL")}
-                    className={`px-3 py-1.5 rounded-[9px] text-[11px] font-bold transition-all ${
+                    className={`px-3 py-1.5 rounded-[8px] text-[11px] font-bold transition-all whitespace-nowrap ${
                       reconciliationFilter === "ALL"
                         ? "bg-white dark:bg-[#3A3A3C] text-[#1C1C1E] dark:text-white shadow-sm"
                         : "text-[#8E8E93] hover:text-[#1C1C1E]"
@@ -840,13 +809,13 @@ export default function ShiftsPage() {
                   <button
                     type="button"
                     onClick={() => setReconciliationFilter("DISCREPANCY_ONLY")}
-                    className={`px-3 py-1.5 rounded-[9px] text-[11px] font-bold transition-all flex items-center gap-1.5 ${
+                    className={`px-3 py-1.5 rounded-[8px] text-[11px] font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
                       reconciliationFilter === "DISCREPANCY_ONLY"
                         ? "bg-rose-600 text-white shadow-sm"
                         : "text-rose-600 hover:text-rose-700"
                     }`}
                   >
-                    <AlertTriangle className="w-3 h-3" />
+                    <AlertTriangle className="w-3 h-3 shrink-0" />
                     <span>
                       Ada Selisih ({shiftsHistory.filter((s) => (s.cashDifference || 0) !== 0).length})
                     </span>
@@ -854,13 +823,13 @@ export default function ShiftsPage() {
                   <button
                     type="button"
                     onClick={() => setReconciliationFilter("EXACT_MATCH")}
-                    className={`px-3 py-1.5 rounded-[9px] text-[11px] font-bold transition-all flex items-center gap-1.5 ${
+                    className={`px-3 py-1.5 rounded-[8px] text-[11px] font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
                       reconciliationFilter === "EXACT_MATCH"
                         ? "bg-emerald-600 text-white shadow-sm"
                         : "text-emerald-600 hover:text-emerald-700"
                     }`}
                   >
-                    <CheckCircle2 className="w-3 h-3" />
+                    <CheckCircle2 className="w-3 h-3 shrink-0" />
                     <span>
                       Klop (Rp 0) ({shiftsHistory.filter((s) => (s.cashDifference || 0) === 0).length})
                     </span>
@@ -876,7 +845,7 @@ export default function ShiftsPage() {
                     type="text"
                     value={reconciliationSearch}
                     onChange={(e) => setReconciliationSearch(e.target.value)}
-                    placeholder="Cari nama kasir, shift, atau supervisor..."
+                    placeholder="Cari nama kasir, shift, atau catatan..."
                     className="w-full text-[12px] pl-9 pr-3 py-2 rounded-[10px] bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-black/[0.04] dark:border-white/[0.04] outline-none focus:border-[#008B94]"
                   />
                 </div>
@@ -889,17 +858,17 @@ export default function ShiftsPage() {
                     className="w-full text-[12px] px-3 py-2 rounded-[10px] bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-black/[0.04] dark:border-white/[0.04] outline-none font-medium text-[#1C1C1E] dark:text-white"
                   >
                     <option value="ALL">Semua Kategori Penyebab</option>
-                    <option value="NONE_EXACT_MATCH">✅ Kas Sesuai (Klop)</option>
-                    <option value="COIN_ROUNDING">🪙 Pembulatan Koin Receh</option>
-                    <option value="WRONG_CHANGE">⚠️ Salah Hitung Kembalian</option>
-                    <option value="OFFLINE_RECEIPT">🧾 Struk Manual Tertinggal</option>
-                    <option value="PETTY_CASH_MISMATCH">📦 Selisih Bon Kas Kecil</option>
-                    <option value="DAMAGED_OR_COUNTERFEIT">❌ Uang Rusak Sobek / Ditolak</option>
-                    <option value="OTHER">🔍 Lainnya / Investigasi Khusus</option>
+                    <option value="NONE_EXACT_MATCH">Kas Sesuai (Klop)</option>
+                    <option value="COIN_ROUNDING">Pembulatan Uang Receh</option>
+                    <option value="WRONG_CHANGE">Salah Hitung Kembalian</option>
+                    <option value="OFFLINE_RECEIPT">Struk Manual Tertinggal</option>
+                    <option value="PETTY_CASH_MISMATCH">Selisih Bon Kas Kecil</option>
+                    <option value="DAMAGED_OR_COUNTERFEIT">Uang Rusak / Ditolak</option>
+                    <option value="OTHER">Lainnya / Pemeriksaan Khusus</option>
                   </select>
                 </div>
 
-                <div className="text-right text-[11px] text-[#8E8E93] self-center">
+                <div className="text-right text-[11px] text-[#8E8E93] self-center whitespace-nowrap">
                   Menampilkan{" "}
                   <strong className="text-[#1C1C1E] dark:text-white">
                     {
@@ -930,18 +899,18 @@ export default function ShiftsPage() {
 
               {/* Table of Reconciliation Logs */}
               <div className="w-full max-w-full min-w-0 overflow-x-auto pt-2">
-                <table className="w-full min-w-[850px] text-left text-[12px]">
+                <table className="w-full min-w-[920px] text-left text-[12px]">
                   <thead>
-                    <tr className="border-b border-neutral-200 dark:border-neutral-800 text-[#8E8E93] text-[11px] uppercase tracking-wider font-semibold">
-                      <th className="pb-3">Waktu & Shift</th>
-                      <th className="pb-3">Kasir Bertugas</th>
-                      <th className="pb-3 text-right">Ekspektasi Sistem</th>
-                      <th className="pb-3 text-right">Fisik di Laci</th>
-                      <th className="pb-3 text-center">Selisih Kas</th>
-                      <th className="pb-3">Penyebab & Catatan</th>
-                      <th className="pb-3">Login Otorisasi Supervisor</th>
-                      <th className="pb-3">Tindakan</th>
-                      <th className="pb-3 text-right">Berita Acara</th>
+                    <tr className="border-b border-neutral-200 dark:border-neutral-800 text-[#8E8E93] text-[10px] uppercase tracking-wider font-semibold">
+                      <th className="pb-3 pr-3 whitespace-nowrap">Waktu & Shift</th>
+                      <th className="pb-3 px-3 whitespace-nowrap">Kasir Bertugas</th>
+                      <th className="pb-3 px-3 text-right whitespace-nowrap">Saldo Sistem</th>
+                      <th className="pb-3 px-3 text-right whitespace-nowrap">Fisik di Laci</th>
+                      <th className="pb-3 px-3 text-center whitespace-nowrap">Selisih Kas</th>
+                      <th className="pb-3 px-3 whitespace-nowrap">Penyebab & Catatan</th>
+                      <th className="pb-3 px-3 whitespace-nowrap">Otorisasi Supervisor</th>
+                      <th className="pb-3 px-3 whitespace-nowrap">Penyelesaian</th>
+                      <th className="pb-3 pl-3 text-right whitespace-nowrap">Berita Acara</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800/60">
@@ -975,20 +944,20 @@ export default function ShiftsPage() {
                             key={shift.id}
                             className="hover:bg-neutral-50 dark:hover:bg-neutral-900/40 transition-colors"
                           >
-                            <td className="py-3.5">
+                            <td className="py-3.5 pr-3 whitespace-nowrap">
                               <span className="font-bold text-[#1C1C1E] dark:text-white block">
                                 Shift {shift.shiftNumber}
                               </span>
                               <span className="text-[10px] text-[#8E8E93] font-mono">
                                 {new Date(shift.startTime).toLocaleDateString("id-ID", {
-                                  day: "numeric",
+                                  day: "2-digit",
                                   month: "short",
                                   year: "numeric",
                                 })}
                               </span>
                             </td>
 
-                            <td className="py-3.5">
+                            <td className="py-3.5 px-3 whitespace-nowrap">
                               <span className="font-semibold text-[#1C1C1E] dark:text-white block">
                                 {shift.cashierName}
                               </span>
@@ -997,26 +966,26 @@ export default function ShiftsPage() {
                                   {shift.terminalId}
                                 </span>
                                 {shift.handoverLog && (
-                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-teal-50 text-[#008B94] dark:bg-teal-950 dark:text-teal-300 border border-teal-200 dark:border-teal-800">
-                                    <ArrowRightLeft className="w-2.5 h-2.5" />
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-teal-50 text-[#008B94] dark:bg-teal-950 dark:text-teal-300 border border-teal-200 dark:border-teal-800 whitespace-nowrap">
+                                    <ArrowRightLeft className="w-2.5 h-2.5 shrink-0" />
                                     <span>Serah Terima</span>
                                   </span>
                                 )}
                               </div>
                             </td>
 
-                            <td className="py-3.5 text-right font-mono text-[#8E8E93] tabular-nums">
+                            <td className="py-3.5 px-3 text-right font-mono text-[#8E8E93] tabular-nums whitespace-nowrap">
                               {formatRupiah(shift.expectedCashTotal || 0)}
                             </td>
 
-                            <td className="py-3.5 text-right font-mono font-bold text-[#1C1C1E] dark:text-white tabular-nums">
+                            <td className="py-3.5 px-3 text-right font-mono font-bold text-[#1C1C1E] dark:text-white tabular-nums whitespace-nowrap">
                               {formatRupiah(shift.actualCashCount || 0)}
                             </td>
 
                             {/* Difference Badge */}
-                            <td className="py-3.5 text-center">
+                            <td className="py-3.5 px-3 text-center whitespace-nowrap">
                               <span
-                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-[8px] text-[11px] font-black font-mono tabular-nums ${
+                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-[8px] text-[11px] font-bold font-mono tabular-nums whitespace-nowrap ${
                                   isKlop
                                     ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
                                     : isSurplus
@@ -1026,8 +995,8 @@ export default function ShiftsPage() {
                               >
                                 {isKlop ? (
                                   <>
-                                    <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                                    <span>KLOP (Rp 0)</span>
+                                    <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                                    <span>Klop (Rp 0)</span>
                                   </>
                                 ) : isSurplus ? (
                                   <span>+{formatRupiah(diff)}</span>
@@ -1038,58 +1007,58 @@ export default function ShiftsPage() {
                             </td>
 
                             {/* Discrepancy Category & Reason */}
-                            <td className="py-3.5 max-w-[220px]">
-                              <span className="text-[11px] font-semibold text-[#1C1C1E] dark:text-white block">
+                            <td className="py-3.5 px-3 max-w-[220px]">
+                              <span className="text-[11px] font-semibold text-[#1C1C1E] dark:text-white block whitespace-nowrap">
                                 {shift.discrepancyCategory === "COIN_ROUNDING"
-                                  ? "🪙 Pembulatan Receh"
+                                  ? "Pembulatan Receh"
                                   : shift.discrepancyCategory === "WRONG_CHANGE"
-                                  ? "⚠️ Salah Kembalian"
+                                  ? "Salah Kembalian"
                                   : shift.discrepancyCategory === "OFFLINE_RECEIPT"
-                                  ? "🧾 Struk Manual"
+                                  ? "Struk Manual"
                                   : shift.discrepancyCategory === "PETTY_CASH_MISMATCH"
-                                  ? "📦 Bon Kas Kecil"
+                                  ? "Bon Kas Kecil"
                                   : shift.discrepancyCategory === "DAMAGED_OR_COUNTERFEIT"
-                                  ? "❌ Uang Rusak / Ditolak"
+                                  ? "Uang Rusak / Ditolak"
                                   : isKlop
-                                  ? "✅ Kas Sesuai (Klop)"
-                                  : "🔍 Khusus"}
+                                  ? "Kas Sesuai (Klop)"
+                                  : "Pemeriksaan Khusus"}
                               </span>
                               <p
                                 className="text-[10px] text-[#8E8E93] truncate"
                                 title={shift.discrepancyReasonText || shift.closingNote}
                               >
-                                {shift.discrepancyReasonText || shift.closingNote || "-"}
+                                {shift.discrepancyReasonText || shift.closingNote || "—"}
                               </p>
                             </td>
 
                             {/* Supervisor Login Auth */}
-                            <td className="py-3.5">
+                            <td className="py-3.5 px-3 whitespace-nowrap">
                               {shift.supervisorAuth?.isAuthorized ? (
                                 <div className="space-y-0.5">
-                                  <div className="flex items-center gap-1 text-[11px] font-bold text-purple-700 dark:text-purple-300">
-                                    <KeyRound className="w-3 h-3 text-purple-600" />
+                                  <div className="flex items-center gap-1 text-[11px] font-bold text-purple-700 dark:text-purple-300 whitespace-nowrap">
+                                    <KeyRound className="w-3 h-3 text-purple-600 shrink-0" />
                                     <span>{shift.supervisorAuth.supervisorName.split(",")[0]}</span>
                                   </div>
-                                  <span className="inline-block px-1.5 py-0.2 rounded text-[8px] font-bold bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300">
-                                    PIN DIGITAL VERIFIED
+                                  <span className="inline-block px-1.5 py-0.5 rounded text-[9px] font-semibold bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 whitespace-nowrap">
+                                    Terverifikasi PIN
                                   </span>
                                 </div>
                               ) : isKlop ? (
-                                <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1">
-                                  <CheckCircle2 className="w-3 h-3" />
-                                  <span>Otomatis (Kas Klop)</span>
+                                <span className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1 whitespace-nowrap">
+                                  <CheckCircle2 className="w-3 h-3 shrink-0" />
+                                  <span>Otomatis (Klop)</span>
                                 </span>
                               ) : (
-                                <span className="text-[10px] text-neutral-400 italic">
+                                <span className="text-[11px] text-neutral-400 italic whitespace-nowrap">
                                   Menunggu Otorisasi
                                 </span>
                               )}
                             </td>
 
                             {/* Settlement Action */}
-                            <td className="py-3.5">
+                            <td className="py-3.5 px-3 whitespace-nowrap">
                               <span
-                                className={`px-2 py-0.5 rounded-[6px] text-[10px] font-bold ${
+                                className={`px-2 py-0.5 rounded-[6px] text-[10px] font-bold whitespace-nowrap ${
                                   shift.settlementAction === "PHARMACY_ABSORBED"
                                     ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
                                     : shift.settlementAction === "CASHIER_LIABILITY"
@@ -1106,14 +1075,14 @@ export default function ShiftsPage() {
                             </td>
 
                             {/* Action: Print Berita Acara & Z-Report */}
-                            <td className="py-3.5 text-right">
+                            <td className="py-3.5 pl-3 text-right whitespace-nowrap">
                               <button
                                 type="button"
                                 onClick={() => handleOpenZReport(shift)}
-                                className="px-3 py-1.5 rounded-[8px] bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-[#1C1C1E] dark:text-white text-[11px] font-bold inline-flex items-center gap-1 transition-all"
-                                title="Buka dan Cetak Berita Acara Rekonsiliasi & Z-Report (80mm)"
+                                className="px-3 py-1.5 rounded-[8px] bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-[#1C1C1E] dark:text-white text-[11px] font-bold inline-flex items-center gap-1.5 transition-all whitespace-nowrap"
+                                title="Buka dan Cetak Berita Acara Rekonsiliasi Shift"
                               >
-                                <Printer className="w-3 h-3 text-[#008B94]" />
+                                <Printer className="w-3.5 h-3.5 text-[#008B94] shrink-0" />
                                 <span>Cetak Berita Acara</span>
                               </button>
                             </td>
@@ -1129,28 +1098,28 @@ export default function ShiftsPage() {
 
         {/* TAB 2: PETTY CASH LEDGER */}
         {activeTab === "PETTY_CASH" && (
-          <div className="w-full max-w-full min-w-0 overflow-hidden bg-white dark:bg-[#1C1C1E] p-4 sm:p-6 rounded-[22px] border border-black/[0.06] dark:border-white/[0.08] shadow-[0_2px_8px_rgba(0,0,0,0.02)] space-y-4">
+          <div className="w-full max-w-full min-w-0 overflow-hidden bg-white dark:bg-[#1C1C1E] p-4 sm:p-6 rounded-[16px] border border-black/[0.06] dark:border-white/[0.08] shadow-sm space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-neutral-100 dark:border-neutral-800">
               <div>
                 <h2 className="text-[17px] font-bold text-[#1C1C1E] dark:text-white">
-                  Buku Kas Kecil Apotek (Petty Cash Ledger)
+                  Buku Kas Kecil Apotek
                 </h2>
                 <p className="text-[12px] text-[#8E8E93]">
-                  Catatan mutasi operasional apotek (es pendingin vaksin, thermal struk kasir, kurir cito, topup modal)
+                  Catatan pemasukan & pengeluaran operasional laci kasir (kertas struk, es pendingin vaksin, kurir pengantaran, tambahan uang kembalian)
                 </p>
               </div>
 
               {isShiftActive && (
-                <div className="flex gap-2">
+                <div className="flex gap-2 shrink-0">
                   <button
                     type="button"
                     onClick={() => {
                       setPettyCashDefaultType("PAID_OUT");
                       setIsPettyCashOpen(true);
                     }}
-                    className="px-3.5 py-2 rounded-[10px] bg-rose-600 hover:bg-rose-700 text-white text-[12px] font-semibold flex items-center gap-1.5 shadow-sm"
+                    className="px-3.5 py-2 rounded-[10px] bg-rose-600 hover:bg-rose-700 text-white text-[12px] font-semibold flex items-center gap-1.5 shadow-sm whitespace-nowrap"
                   >
-                    <ArrowUpRight className="w-4 h-4" />
+                    <ArrowUpRight className="w-4 h-4 shrink-0" />
                     <span>Catat Kas Keluar</span>
                   </button>
                   <button
@@ -1159,9 +1128,9 @@ export default function ShiftsPage() {
                       setPettyCashDefaultType("PAID_IN");
                       setIsPettyCashOpen(true);
                     }}
-                    className="px-3.5 py-2 rounded-[10px] bg-emerald-600 hover:bg-emerald-700 text-white text-[12px] font-semibold flex items-center gap-1.5 shadow-sm"
+                    className="px-3.5 py-2 rounded-[10px] bg-emerald-600 hover:bg-emerald-700 text-white text-[12px] font-semibold flex items-center gap-1.5 shadow-sm whitespace-nowrap"
                   >
-                    <ArrowDownLeft className="w-4 h-4" />
+                    <ArrowDownLeft className="w-4 h-4 shrink-0" />
                     <span>Catat Kas Masuk</span>
                   </button>
                 </div>
@@ -1170,27 +1139,27 @@ export default function ShiftsPage() {
 
             {/* Petty Cash Table */}
             <div className="w-full max-w-full min-w-0 overflow-x-auto">
-              <table className="w-full min-w-[700px] text-left text-[12px]">
+              <table className="w-full min-w-[760px] text-left text-[12px]">
                 <thead>
-                  <tr className="border-b border-neutral-200 dark:border-neutral-800 text-[#8E8E93]">
-                    <th className="pb-3 font-semibold">Waktu & Tanggal</th>
-                    <th className="pb-3 font-semibold">Jenis Mutasi</th>
-                    <th className="pb-3 font-semibold">Kategori</th>
-                    <th className="pb-3 font-semibold">Keperluan / Keterangan</th>
-                    <th className="pb-3 font-semibold">Pihak Terkait</th>
-                    <th className="pb-3 font-semibold">Petugas Kasir</th>
-                    <th className="pb-3 font-semibold text-right">Nominal</th>
+                  <tr className="border-b border-neutral-200 dark:border-neutral-800 text-[#8E8E93] text-[10px] uppercase tracking-wider font-semibold">
+                    <th className="pb-3 pr-3 whitespace-nowrap">Waktu & Tanggal</th>
+                    <th className="pb-3 px-3 whitespace-nowrap">Jenis Mutasi</th>
+                    <th className="pb-3 px-3 whitespace-nowrap">Kategori</th>
+                    <th className="pb-3 px-3 whitespace-nowrap">Keperluan / Keterangan</th>
+                    <th className="pb-3 px-3 whitespace-nowrap">Pihak Terkait</th>
+                    <th className="pb-3 px-3 whitespace-nowrap">Petugas Kasir</th>
+                    <th className="pb-3 pl-3 text-right whitespace-nowrap">Nominal</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800/60">
                   {pettyCashMovements.map((movement) => (
                     <tr key={movement.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-900/40">
-                      <td className="py-3 font-mono text-[#8E8E93]">
+                      <td className="py-3 pr-3 font-mono text-[#8E8E93] whitespace-nowrap">
                         {new Date(movement.timestamp).toLocaleString("id-ID")}
                       </td>
-                      <td className="py-3">
+                      <td className="py-3 px-3 whitespace-nowrap">
                         <span
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-[6px] font-bold text-[10px] ${
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-[6px] font-bold text-[10px] whitespace-nowrap ${
                             movement.type === "PAID_OUT"
                               ? "bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300"
                               : "bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300"
@@ -1198,31 +1167,31 @@ export default function ShiftsPage() {
                         >
                           {movement.type === "PAID_OUT" ? (
                             <>
-                              <ArrowUpRight className="w-3 h-3" />
-                              <span>KAS KELUAR</span>
+                              <ArrowUpRight className="w-3 h-3 shrink-0" />
+                              <span>Kas Keluar</span>
                             </>
                           ) : (
                             <>
-                              <ArrowDownLeft className="w-3 h-3" />
-                              <span>KAS MASUK</span>
+                              <ArrowDownLeft className="w-3 h-3 shrink-0" />
+                              <span>Kas Masuk</span>
                             </>
                           )}
                         </span>
                       </td>
-                      <td className="py-3 font-semibold text-[#1C1C1E] dark:text-white">
+                      <td className="py-3 px-3 font-semibold text-[#1C1C1E] dark:text-white whitespace-nowrap">
                         {movement.categoryLabel}
                       </td>
-                      <td className="py-3 text-[#636366] dark:text-[#AEAEB2] max-w-[280px]">
+                      <td className="py-3 px-3 text-[#636366] dark:text-[#AEAEB2] max-w-[280px]">
                         {movement.reason}
                       </td>
-                      <td className="py-3 text-[#8E8E93]">
+                      <td className="py-3 px-3 text-[#8E8E93] whitespace-nowrap">
                         {movement.recipientOrSource}
                       </td>
-                      <td className="py-3 font-medium text-[#1C1C1E] dark:text-white">
+                      <td className="py-3 px-3 font-medium text-[#1C1C1E] dark:text-white whitespace-nowrap">
                         {movement.recordedBy}
                       </td>
                       <td
-                        className={`py-3 text-right font-bold tabular-nums ${
+                        className={`py-3 pl-3 text-right font-bold tabular-nums whitespace-nowrap ${
                           movement.type === "PAID_OUT"
                             ? "text-rose-600 dark:text-rose-400"
                             : "text-emerald-600 dark:text-emerald-400"
@@ -1241,13 +1210,13 @@ export default function ShiftsPage() {
 
         {/* TAB 3: DENOMINATION COUNTER WORKSHEET */}
         {activeTab === "COUNTER" && (
-          <div className="w-full max-w-full min-w-0 overflow-hidden bg-white dark:bg-[#1C1C1E] p-4 sm:p-6 rounded-[22px] border border-black/[0.06] dark:border-white/[0.08] shadow-[0_2px_8px_rgba(0,0,0,0.02)] space-y-6">
+          <div className="w-full max-w-full min-w-0 overflow-hidden bg-white dark:bg-[#1C1C1E] p-4 sm:p-6 rounded-[16px] border border-black/[0.06] dark:border-white/[0.08] shadow-sm space-y-6">
             <div className="pb-4 border-b border-neutral-100 dark:border-neutral-800">
               <h2 className="text-[17px] font-bold text-[#1C1C1E] dark:text-white">
-                Kalkulator Pecahan Mata Uang Rupiah (Denomination Worksheet)
+                Kalkulator Pecahan Uang Rupiah
               </h2>
               <p className="text-[12px] text-[#8E8E93]">
-                Alat bantu hitung fisik uang di laci kasir Apotek Kerso Waras sebelum serah terima shift
+                Alat bantu hitung fisik uang kertas dan logam di laci kasir sebelum serah terima atau penutupan shift
               </p>
             </div>
 
@@ -1261,38 +1230,38 @@ export default function ShiftsPage() {
 
         {/* TAB 4: HISTORICAL SHIFTS & OWNER AUDIT */}
         {activeTab === "HISTORY" && (
-          <div className="w-full max-w-full min-w-0 overflow-hidden bg-white dark:bg-[#1C1C1E] p-4 sm:p-6 rounded-[22px] border border-black/[0.06] dark:border-white/[0.08] shadow-[0_2px_8px_rgba(0,0,0,0.02)] space-y-4">
+          <div className="w-full max-w-full min-w-0 overflow-hidden bg-white dark:bg-[#1C1C1E] p-4 sm:p-6 rounded-[16px] border border-black/[0.06] dark:border-white/[0.08] shadow-sm space-y-4">
             <div className="pb-4 border-b border-neutral-100 dark:border-neutral-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h2 className="text-[17px] font-bold text-[#1C1C1E] dark:text-white">
-                  Arsip Laporan Shift & Audit Owner / PSA
+                  Arsip Laporan Shift & Verifikasi Pemilik
                 </h2>
                 <p className="text-[12px] text-[#8E8E93]">
-                  Histori rekapitulasi pergantian shift kasir, status selisih kas (Klop/Surplus/Minus), dan tanda tangan audit
+                  Riwayat penutupan shift kasir, status selisih kas laci, dan tanda tangan verifikasi pemilik apotek
                 </p>
               </div>
 
               {isOwnerOrAdmin && (
-                <span className="px-3 py-1 rounded-[10px] bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-[11px] font-bold flex items-center gap-1.5">
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  <span>Mode Verifikasi Owner Aktif</span>
+                <span className="px-3 py-1 rounded-[10px] bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-[11px] font-bold flex items-center gap-1.5 whitespace-nowrap shrink-0">
+                  <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+                  <span>Mode Verifikasi Pemilik Aktif</span>
                 </span>
               )}
             </div>
 
             {/* Shifts History Table */}
             <div className="w-full max-w-full min-w-0 overflow-x-auto">
-              <table className="w-full min-w-[800px] text-left text-[12px]">
+              <table className="w-full min-w-[860px] text-left text-[12px]">
                 <thead>
-                  <tr className="border-b border-neutral-200 dark:border-neutral-800 text-[#8E8E93]">
-                    <th className="pb-3 font-semibold">Shift & Waktu</th>
-                    <th className="pb-3 font-semibold">Kasir Bertugas</th>
-                    <th className="pb-3 font-semibold">Modal Awal</th>
-                    <th className="pb-3 font-semibold">Penjualan Tunai</th>
-                    <th className="pb-3 font-semibold">Fisik Laci</th>
-                    <th className="pb-3 font-semibold">Status Selisih</th>
-                    <th className="pb-3 font-semibold">Audit Owner / APJ</th>
-                    <th className="pb-3 font-semibold text-right">Aksi</th>
+                  <tr className="border-b border-neutral-200 dark:border-neutral-800 text-[#8E8E93] text-[10px] uppercase tracking-wider font-semibold">
+                    <th className="pb-3 pr-3 whitespace-nowrap">Shift & Waktu</th>
+                    <th className="pb-3 px-3 whitespace-nowrap">Kasir Bertugas</th>
+                    <th className="pb-3 px-3 text-right whitespace-nowrap">Modal Awal</th>
+                    <th className="pb-3 px-3 text-right whitespace-nowrap">Penjualan Tunai</th>
+                    <th className="pb-3 px-3 text-right whitespace-nowrap">Fisik Laci</th>
+                    <th className="pb-3 px-3 whitespace-nowrap">Status Selisih</th>
+                    <th className="pb-3 px-3 whitespace-nowrap">Verifikasi Pemilik</th>
+                    <th className="pb-3 pl-3 text-right whitespace-nowrap">Aksi</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800/60">
@@ -1303,17 +1272,21 @@ export default function ShiftsPage() {
 
                     return (
                       <tr key={shift.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-900/40">
-                        <td className="py-3.5">
+                        <td className="py-3.5 pr-3 whitespace-nowrap">
                           <span className="font-bold text-[#1C1C1E] dark:text-white block">
                             Shift {shift.shiftNumber}
                           </span>
                           <span className="text-[10px] font-mono text-[#8E8E93]">
-                            {new Date(shift.startTime).toLocaleDateString("id-ID")} &bull;{" "}
+                            {new Date(shift.startTime).toLocaleDateString("id-ID", {
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
+                            })} &bull;{" "}
                             {new Date(shift.startTime).toLocaleTimeString("id-ID", {
                               hour: "2-digit",
                               minute: "2-digit",
                             })}
-                            -
+                            –
                             {shift.endTime
                               ? new Date(shift.endTime).toLocaleTimeString("id-ID", {
                                   hour: "2-digit",
@@ -1322,27 +1295,27 @@ export default function ShiftsPage() {
                               : "Aktif"}
                           </span>
                         </td>
-                        <td className="py-3.5 font-semibold text-[#1C1C1E] dark:text-white">
+                        <td className="py-3.5 px-3 font-semibold text-[#1C1C1E] dark:text-white whitespace-nowrap">
                           <div>{shift.cashierName}</div>
                           {shift.handoverLog && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[5px] text-[9px] font-bold bg-teal-50 text-[#008B94] dark:bg-teal-950 dark:text-teal-300 border border-teal-200 dark:border-teal-800 mt-1">
-                              <ArrowRightLeft className="w-2.5 h-2.5" />
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[5px] text-[9px] font-bold bg-teal-50 text-[#008B94] dark:bg-teal-950 dark:text-teal-300 border border-teal-200 dark:border-teal-800 mt-1 whitespace-nowrap">
+                              <ArrowRightLeft className="w-2.5 h-2.5 shrink-0" />
                               <span>Ke: {shift.handoverLog.nextCashierName.split(" ")[0]}</span>
                             </span>
                           )}
                         </td>
-                        <td className="py-3.5 tabular-nums text-[#8E8E93]">
+                        <td className="py-3.5 px-3 text-right tabular-nums text-[#8E8E93] whitespace-nowrap">
                           {formatRupiah(shift.openingCash)}
                         </td>
-                        <td className="py-3.5 font-semibold tabular-nums text-emerald-600">
+                        <td className="py-3.5 px-3 text-right font-semibold tabular-nums text-emerald-600 whitespace-nowrap">
                           {formatRupiah(shift.cashSalesTotal)}
                         </td>
-                        <td className="py-3.5 font-bold tabular-nums text-[#1C1C1E] dark:text-white">
+                        <td className="py-3.5 px-3 text-right font-bold tabular-nums text-[#1C1C1E] dark:text-white whitespace-nowrap">
                           {formatRupiah(shift.actualCashCount || 0)}
                         </td>
-                        <td className="py-3.5">
+                        <td className="py-3.5 px-3 whitespace-nowrap">
                           <span
-                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-[8px] text-[10px] font-bold tabular-nums ${
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-[8px] text-[10px] font-bold tabular-nums whitespace-nowrap ${
                               isKlop
                                 ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
                                 : isSurplus
@@ -1352,13 +1325,13 @@ export default function ShiftsPage() {
                           >
                             {isKlop ? (
                               <>
-                                <CheckCircle2 className="w-3 h-3" />
-                                <span>KLOP (Rp 0)</span>
+                                <CheckCircle2 className="w-3 h-3 shrink-0" />
+                                <span>Klop (Rp 0)</span>
                               </>
                             ) : isSurplus ? (
-                              <span>LEBIH +{formatRupiah(diff)}</span>
+                              <span>Lebih +{formatRupiah(diff)}</span>
                             ) : (
-                              <span>MINUS {formatRupiah(diff)}</span>
+                              <span>Kurang {formatRupiah(diff)}</span>
                             )}
                           </span>
                           {shift.closingNote && (
@@ -1367,11 +1340,11 @@ export default function ShiftsPage() {
                             </p>
                           )}
                         </td>
-                        <td className="py-3.5">
+                        <td className="py-3.5 px-3 whitespace-nowrap">
                           {shift.isAuditedByOwner ? (
                             <div>
-                              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600">
-                                <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 whitespace-nowrap">
+                                <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
                                 <span>Terverifikasi</span>
                               </span>
                               <p className="text-[10px] text-[#8E8E93] truncate max-w-[180px]" title={shift.auditNote}>
@@ -1382,24 +1355,24 @@ export default function ShiftsPage() {
                             <button
                               type="button"
                               onClick={() => handleTriggerAudit(shift)}
-                              className="px-2.5 py-1 rounded-[8px] bg-purple-100 hover:bg-purple-200 text-purple-800 text-[11px] font-bold transition-colors"
+                              className="px-2.5 py-1 rounded-[8px] bg-purple-100 hover:bg-purple-200 text-purple-800 text-[11px] font-bold transition-colors whitespace-nowrap"
                             >
                               Verifikasi Sekarang
                             </button>
                           ) : (
-                            <span className="text-[11px] text-[#8E8E93] italic">
+                            <span className="text-[11px] text-[#8E8E93] italic whitespace-nowrap">
                               Menunggu Verifikasi
                             </span>
                           )}
                         </td>
-                        <td className="py-3.5 text-right">
+                        <td className="py-3.5 pl-3 text-right whitespace-nowrap">
                           <button
                             type="button"
                             onClick={() => handleOpenZReport(shift)}
-                            className="px-3 py-1.5 rounded-[10px] bg-[#F5F5F7] dark:bg-[#2C2C2E] hover:bg-neutral-200 text-[#1C1C1E] dark:text-white text-[11px] font-semibold inline-flex items-center gap-1.5 transition-colors"
+                            className="px-3 py-1.5 rounded-[10px] bg-[#F5F5F7] dark:bg-[#2C2C2E] hover:bg-neutral-200 text-[#1C1C1E] dark:text-white text-[11px] font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
                           >
-                            <Printer className="w-3.5 h-3.5" />
-                            <span>Z-Report 80mm</span>
+                            <Printer className="w-3.5 h-3.5 shrink-0" />
+                            <span>Cetak Rekap Shift</span>
                           </button>
                         </td>
                       </tr>
@@ -1685,5 +1658,13 @@ export default function ShiftsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function ShiftsPage() {
+  return (
+    <Suspense fallback={null}>
+      <ShiftsPageContent />
+    </Suspense>
   );
 }

@@ -72,11 +72,11 @@ export const DrawerShiftFlyout: React.FC<DrawerShiftFlyoutProps> = ({
       <button
         type="button"
         onClick={onOpenShiftOpen}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[12px] bg-amber-400/20 hover:bg-amber-400/30 text-amber-200 border border-amber-300/40 text-[11px] font-bold shadow-sm transition-all"
-        title="Shift Kasir Belum Dibuka. Klik untuk Buka Kasir Modal Awal"
+        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-800/60 text-[11.5px] font-semibold transition-colors"
+        title="Buka Shift Kasir"
       >
-        <Wallet className="w-3.5 h-3.5 text-amber-300" />
-        <span>Buka Shift Kasir</span>
+        <Wallet className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+        <span>Buka Shift</span>
       </button>
     );
   }
@@ -87,17 +87,17 @@ export const DrawerShiftFlyout: React.FC<DrawerShiftFlyoutProps> = ({
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className="inline-flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-[10px] bg-black/25 hover:bg-black/35 text-white border border-white/20 text-[11px] font-semibold transition-all shadow-sm backdrop-blur-md"
-        title="Klik untuk membuka rincian kas laci real-time & aksi kasir"
+        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-neutral-100/80 hover:bg-neutral-200/70 dark:bg-white/[0.06] dark:hover:bg-white/10 text-neutral-700 dark:text-neutral-200 border border-neutral-200/80 dark:border-white/10 text-[11.5px] font-medium transition-colors"
+        title="Rincian kas laci & shift"
       >
-        <span className="h-2 w-2 rounded-full bg-emerald-400 shrink-0" />
-        <span className="text-teal-100 hidden sm:inline">Shift {currentShift.shiftNumber}</span>
-        <span className="text-teal-100 sm:hidden">S{currentShift.shiftNumber}</span>
-        <span className="font-bold text-white tabular-nums hidden lg:inline">
-          &bull; {formatRupiah(expectedCash)}
+        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+        <span className="text-neutral-600 dark:text-neutral-400 hidden sm:inline">Shift {currentShift.shiftNumber}</span>
+        <span className="text-neutral-600 dark:text-neutral-400 sm:hidden">S{currentShift.shiftNumber}</span>
+        <span className="font-semibold text-neutral-900 dark:text-white font-mono tabular-nums hidden md:inline">
+          &middot; {formatRupiah(expectedCash)}
         </span>
         <ChevronDown
-          className={`w-3 h-3 text-teal-200 transition-transform duration-200 ${
+          className={`w-3 h-3 text-neutral-400 transition-transform duration-200 ${
             isOpen ? "rotate-180" : ""
           }`}
         />

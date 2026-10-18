@@ -8,27 +8,18 @@ import {
   X,
   Store,
   Clock,
-  FlaskConical,
   Package,
   Layers,
   Building2,
   TrendingUp,
   ShieldCheck,
-  Users,
-  FileText,
-  Sliders,
-  ChevronRight,
-  Sun,
-  Moon,
-  HelpCircle,
   LogOut,
-  Sparkles,
-  Shield,
-  Search,
+  Wifi,
+  WifiOff,
 } from "lucide-react";
 import { useApotekStore } from "@/lib/store";
 import { soundEngine } from "@/lib/audio";
-import { destroySession } from "@/lib/auth/auth-service";
+import { destroySession, getRbacLevelInfo } from "@/lib/auth/auth-service";
 
 interface MobileNavDrawerProps {
   isOpen: boolean;
@@ -42,19 +33,28 @@ export const MobileNavDrawer: React.FC<MobileNavDrawerProps> = ({
   isOpen,
   onClose,
   onOpenRoleModal,
-  onOpenHelp,
-  onOpenCmdK,
 }) => {
   const pathname = usePathname();
   const router = useRouter();
-  const { currentUser, currentShift, logout } = useApotekStore();
+  const {
+    currentUser,
+    purchaseOrders,
+    isOfflineSimulated,
+    offlineQueueIds,
+    toggleOfflineSimulation,
+    logout,
+  } = useApotekStore();
 
   if (!isOpen) return null;
 
-  const isOwnerOrSuperAdmin =
+  const isLevel1 =
     currentUser.role === "SUPER_ADMIN" || currentUser.role === "OWNER";
-  const isApoteker =
-    currentUser.role === "KARYAWAN_APOTEKER" || isOwnerOrSuperAdmin;
+  const isLevel2 = currentUser.role === "KARYAWAN_APOTEKER" || isLevel1;
+  const rbacInfo = getRbacLevelInfo(currentUser.role);
+
+  const pendingPoCount = (purchaseOrders || []).filter(
+    (po) => po.status === "MENUNGGU_PERSETUJUAN"
+  ).length;
 
   const handleLogout = () => {
     soundEngine.playKeyTap();
@@ -66,139 +66,95 @@ export const MobileNavDrawer: React.FC<MobileNavDrawerProps> = ({
 
   const navSections = [
     {
-      title: "Operasional Kasir & Pelayanan",
+      title: "Pelayanan",
       items: [
         {
           href: "/",
           label: "Kasir POS",
-          badge: "F12 Bayar",
-          desc: "Penjualan obat resep, OTC & checkout",
           icon: Store,
         },
         {
           href: "/shifts",
-          label: "Shift & Rekonsiliasi Kas",
-          badge: currentShift?.status === "OPEN" ? "Shift Aktif" : undefined,
-          desc: "Buka/tutup kasir, blind count, X-Report",
+          label: "Shift & Kas",
           icon: Clock,
         },
-        {
-          href: "/compounding",
-          label: "Peracikan Resep (Racikan)",
-          badge: "F3 Racikan",
-          desc: "Kalkulator DTD, tuslah, embalase & dosis anak",
-          icon: FlaskConical,
-        },
       ],
     },
     {
-      title: "Manajemen Produk & Stok Gudang",
+      title: "Gudang & Inventaris",
       items: [
-        {
-          href: "/products",
-          label: "Katalog Obat & Master HPP",
-          desc: "Daftar obat, barcode, penetapan HNA & harga jual",
-          icon: Package,
-        },
         {
           href: "/inventory",
-          label: "Inventori & Batch FEFO",
-          badge: "Radar ED",
-          desc: "Pantau stok fisik, nomor batch, kartu stok",
-          icon: Layers,
+          label: isLevel2 ? "Stok & Opname" : "Cek Sisa Stok",
+          icon: Package,
         },
-        {
-          href: "/procurement",
-          label: "Pengadaan Obat (PBF)",
-          desc: "Faktur masuk distributor & Surat Pesanan (SP)",
-          icon: Building2,
-        },
+        ...(isLevel2
+          ? [
+              {
+                href: "/procurement",
+                label: "Pesanan PO",
+                badgeCount: pendingPoCount > 0 ? pendingPoCount : undefined,
+                icon: Building2,
+              },
+              {
+                href: "/products",
+                label: "Katalog Obat",
+                icon: Layers,
+              },
+            ]
+          : []),
       ],
     },
-    {
-      title: "Laporan Finansial & Pasien",
-      items: [
-        {
-          href: "/analytics",
-          label: "Analitik Pendapatan & P&L",
-          badge: "Laporan Formal",
-          desc: "Grafik omzet per shift, harian, mingguan, P&L",
-          icon: TrendingUp,
-        },
-        ...(isOwnerOrSuperAdmin
-          ? [
+    ...(isLevel1
+      ? [
+          {
+            title: "Manajemen",
+            items: [
               {
                 href: "/owner",
-                label: "Dashboard Eksekutif Owner",
-                badge: "Owner PSA",
-                desc: "Laba kotor real-time, valuasi aset apotek",
-                icon: ShieldCheck,
+                label: "Laporan & Omzet",
+                icon: TrendingUp,
               },
-            ]
-          : []),
-        {
-          href: "/crm",
-          label: "Rekam Medis Pasien (PMR)",
-          desc: "Riwayat alergi & pengingat WA obat rutin PRB",
-          icon: Users,
-        },
-      ],
-    },
-    {
-      title: "Kepatuhan Regulasi & Keamanan",
-      items: [
-        {
-          href: "/regulatory",
-          label: "Kepatuhan SATUSEHAT & SIPNAP",
-          badge: "Kemenkes",
-          desc: "Interoperabilitas HL7 FHIR & ekspor CSV SIPNAP",
-          icon: FileText,
-        },
-        ...(isOwnerOrSuperAdmin
-          ? [
               {
                 href: "/users",
-                label: "Kelola Staf & Hak Akses RBAC",
-                badge: "Admin",
-                desc: "Manajemen akun, PIN supervisor & audit log",
-                icon: Sliders,
+                label: "Hak Akses (RBAC)",
+                icon: ShieldCheck,
               },
-            ]
-          : []),
-      ],
-    },
+            ],
+          },
+        ]
+      : []),
   ];
 
   return (
-    <div className="fixed inset-0 z-50 lg:hidden animate-in fade-in duration-200">
-      {/* Backdrop */}
+    <div className="fixed inset-0 z-50 lg:hidden animate-in fade-in duration-150">
       <div
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+        className="fixed inset-0 bg-black/45 backdrop-blur-xs"
         onClick={() => {
           soundEngine.playKeyTap();
           onClose();
         }}
       />
 
-      {/* Drawer Panel */}
-      <div className="fixed inset-y-0 right-0 w-full max-w-[340px] bg-white dark:bg-[#1C1C1E] shadow-2xl flex flex-col z-50 animate-in slide-in-from-right duration-250">
+      <aside className="fixed inset-y-0 left-0 w-[264px] bg-[#FAFAFA] dark:bg-[#141416] border-r border-neutral-200 dark:border-neutral-800 shadow-xl flex flex-col z-50 animate-in slide-in-from-left duration-200">
         {/* Header */}
-        <div className="p-4 border-b border-black/[0.08] dark:border-white/[0.12] bg-gradient-to-r from-[#00575D] to-[#008B94] text-white flex items-center justify-between">
+        <div className="h-14 px-4 border-b border-neutral-200/80 dark:border-neutral-800 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 flex items-center justify-center">
+            <div className="w-7 h-7 rounded-lg bg-[#00767E] flex items-center justify-center p-1 shrink-0">
               <Image
-                src="/logo-white.png"
-                alt="Logo Apotek"
-                width={32}
-                height={32}
-                className="w-full h-full object-contain filter drop-shadow-sm"
+                src="/logo-kerso-waras-white.svg"
+                alt="Apotek Kerso Waras"
+                width={22}
+                height={22}
+                unoptimized
+                className="w-full h-full object-contain"
               />
             </div>
-            <div>
-              <h3 className="text-[14px] font-bold tracking-tight leading-tight">
-                Apotek Kerso Waras
+            <div className="leading-tight">
+              <h3 className="text-[13.5px] font-bold text-neutral-900 dark:text-white tracking-tight">
+                Kerso Waras
               </h3>
-              <p className="text-[11px] text-teal-100">Sistem Farmasi Terpadu</p>
+              <p className="text-[10.5px] text-neutral-500">Kedung, Jepara</p>
             </div>
           </div>
 
@@ -208,54 +164,25 @@ export const MobileNavDrawer: React.FC<MobileNavDrawerProps> = ({
               soundEngine.playKeyTap();
               onClose();
             }}
-            className="p-1.5 rounded-full bg-white/20 hover:bg-white/30 text-white transition-colors"
-            title="Tutup Menu"
+            className="p-1.5 rounded-lg text-neutral-500 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-200/60 dark:hover:bg-white/10 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* User Card */}
-        <div className="p-3.5 bg-neutral-50 dark:bg-neutral-900 border-b border-black/[0.06] dark:border-white/[0.08] flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-full bg-[#008B94] text-white flex items-center justify-center font-bold text-[12px] shadow-sm">
-              {currentUser.avatar}
-            </div>
-            <div className="leading-tight">
-              <span className="text-[13px] font-bold text-[#1C1C1E] dark:text-white block truncate max-w-[170px]">
-                {currentUser.name}
-              </span>
-              <span className="text-[10px] text-[#8E8E93] capitalize">
-                {currentUser.role.replace(/_/g, " ").toLowerCase()}
-              </span>
-            </div>
-          </div>
-
-          {onOpenRoleModal && (
-            <button
-              type="button"
-              onClick={() => {
-                onClose();
-                onOpenRoleModal();
-              }}
-              className="px-2.5 py-1 text-[11px] font-semibold rounded-[8px] bg-neutral-200 dark:bg-neutral-800 text-[#1C1C1E] dark:text-white hover:bg-neutral-300 transition-colors"
-            >
-              Ganti
-            </button>
-          )}
-        </div>
-
         {/* Navigation Sections */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-4 no-scrollbar">
+        <div className="flex-1 overflow-y-auto px-2.5 py-3 space-y-4">
           {navSections.map((section, idx) => (
-            <div key={idx} className="space-y-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#8E8E93] px-2 block">
+            <div key={idx}>
+              <h4 className="px-2.5 mb-1 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
                 {section.title}
-              </span>
+              </h4>
               <div className="space-y-0.5">
                 {section.items.map((item) => {
                   const Icon = item.icon;
-                  const isActive = pathname === item.href;
+                  const isActive =
+                    pathname === item.href ||
+                    (item.href === "/owner" && pathname === "/analytics");
                   return (
                     <Link
                       key={item.href}
@@ -264,47 +191,19 @@ export const MobileNavDrawer: React.FC<MobileNavDrawerProps> = ({
                         soundEngine.playKeyTap();
                         onClose();
                       }}
-                      className={`w-full p-2.5 rounded-[12px] flex items-center justify-between text-left transition-all ${
+                      className={`flex items-center justify-between h-9 px-2.5 rounded-lg text-[13px] transition-colors ${
                         isActive
-                          ? "bg-[#008B94] text-white shadow-sm font-semibold"
-                          : "text-[#1C1C1E] dark:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                          ? "bg-[#00767E]/10 dark:bg-[#008B94]/20 text-[#006067] dark:text-teal-300 font-semibold"
+                          : "text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200/60 dark:hover:bg-white/[0.06] hover:text-neutral-900 dark:hover:text-white font-medium"
                       }`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <span
-                          className={`p-1.5 rounded-[8px] shrink-0 ${
-                            isActive
-                              ? "bg-white/20 text-white"
-                              : "bg-neutral-100 dark:bg-neutral-800 text-[#008B94]"
-                          }`}
-                        >
-                          <Icon className="w-4 h-4" />
-                        </span>
-                        <div className="leading-tight truncate">
-                          <span className="text-[12px] font-medium block truncate">
-                            {item.label}
-                          </span>
-                          <span
-                            className={`text-[10px] block truncate ${
-                              isActive
-                                ? "text-white/80"
-                                : "text-[#8E8E93] dark:text-neutral-400"
-                            }`}
-                          >
-                            {item.desc}
-                          </span>
-                        </div>
+                        <Icon className="w-4 h-4 shrink-0" />
+                        <span className="truncate">{item.label}</span>
                       </div>
-
-                      {item.badge && (
-                        <span
-                          className={`px-1.5 py-0.5 rounded-[6px] text-[9px] font-bold shrink-0 ml-2 ${
-                            isActive
-                              ? "bg-white/25 text-white"
-                              : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
-                          }`}
-                        >
-                          {item.badge}
+                      {item.badgeCount !== undefined && item.badgeCount > 0 && (
+                        <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold font-mono bg-amber-500/15 text-amber-700 dark:text-amber-300">
+                          {item.badgeCount}
                         </span>
                       )}
                     </Link>
@@ -315,51 +214,64 @@ export const MobileNavDrawer: React.FC<MobileNavDrawerProps> = ({
           ))}
         </div>
 
-        {/* Footer Actions */}
-        <div className="p-3 border-t border-black/[0.08] dark:border-white/[0.12] bg-neutral-50 dark:bg-neutral-900 space-y-2">
-          {onOpenCmdK && (
+        {/* Footer */}
+        <div className="p-3 border-t border-neutral-200/80 dark:border-neutral-800 space-y-2">
+          <button
+            type="button"
+            onClick={() => toggleOfflineSimulation()}
+            className="w-full px-2.5 py-1.5 rounded-lg flex items-center justify-between text-[11.5px] font-medium text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200/60 dark:hover:bg-white/[0.06] transition-colors"
+          >
+            <span className="flex items-center gap-2">
+              {isOfflineSimulated ? (
+                <>
+                  <WifiOff className="w-3.5 h-3.5 text-amber-500" />
+                  <span className="text-amber-600 dark:text-amber-400 font-semibold">
+                    Cache Lokal ({offlineQueueIds?.length || 0})
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                  <span>Online &middot; Cache Aktif</span>
+                </>
+              )}
+            </span>
+            <Wifi className="w-3.5 h-3.5 text-neutral-400" />
+          </button>
+
+          <div className="flex items-center justify-between gap-2 pt-1">
             <button
               type="button"
               onClick={() => {
                 onClose();
-                onOpenCmdK();
+                if (onOpenRoleModal) onOpenRoleModal();
               }}
-              className="w-full py-2 px-3 rounded-[10px] bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/[0.08] text-[12px] font-medium flex items-center justify-between text-[#1C1C1E] dark:text-white shadow-sm"
+              className="flex-1 flex items-center gap-2.5 p-1.5 rounded-lg hover:bg-neutral-200/60 dark:hover:bg-white/[0.06] text-left min-w-0 transition-colors"
             >
-              <div className="flex items-center gap-2">
-                <Search className="w-4 h-4 text-[#008B94]" />
-                <span>Cari Obat / ⌘K</span>
+              <div className="w-7 h-7 rounded-md bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 flex items-center justify-center font-bold text-[11px] shrink-0">
+                L{rbacInfo.level}
               </div>
-              <span className="text-[10px] text-[#8E8E93] font-mono">⌘K</span>
+              <div className="min-w-0 leading-tight">
+                <p className="text-[12px] font-semibold text-neutral-900 dark:text-white truncate">
+                  {currentUser.name}
+                </p>
+                <p className="text-[10.5px] text-neutral-500 truncate">
+                  {rbacInfo.roleTitle}
+                </p>
+              </div>
             </button>
-          )}
-
-          <div className="flex items-center gap-2">
-            {onOpenHelp && (
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  onOpenHelp();
-                }}
-                className="flex-1 py-2 rounded-[10px] bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/[0.08] text-[12px] font-semibold flex items-center justify-center gap-1.5 text-[#1C1C1E] dark:text-white shadow-sm"
-              >
-                <HelpCircle className="w-4 h-4 text-[#8E8E93]" />
-                <span>Bantuan F1</span>
-              </button>
-            )}
 
             <button
               type="button"
               onClick={handleLogout}
-              className="flex-1 py-2 rounded-[10px] bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-600 dark:text-rose-400 text-[12px] font-semibold flex items-center justify-center gap-1.5 shadow-sm"
+              className="p-2 rounded-lg text-neutral-500 hover:text-rose-600 hover:bg-rose-500/10 transition-colors"
+              title="Keluar"
             >
               <LogOut className="w-4 h-4" />
-              <span>Keluar</span>
             </button>
           </div>
         </div>
-      </div>
+      </aside>
     </div>
   );
 };

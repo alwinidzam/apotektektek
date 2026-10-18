@@ -62,29 +62,29 @@ export const FormalMonthlyPnLView: React.FC<FormalMonthlyPnLViewProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 shrink-0 flex-wrap sm:flex-nowrap">
           {!isApproved ? (
             <button
               type="button"
               onClick={handleTriggerApprove}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-[10px] bg-emerald-600 hover:bg-emerald-700 text-white text-[12px] font-semibold transition-all shadow-sm"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-[10px] bg-emerald-600 hover:bg-emerald-700 text-white text-[12px] font-semibold transition-all shadow-sm whitespace-nowrap shrink-0"
             >
-              <CheckCircle2 className="w-4 h-4" />
-              <span>Sahkan Laporan (Owner PSA)</span>
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+              <span>Setujui Laporan (Pemilik)</span>
             </button>
           ) : (
-            <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[10px] bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[12px] font-bold">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-              <span>Telah Disetujui Owner</span>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[12px] font-bold whitespace-nowrap shrink-0">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>Disetujui Pemilik</span>
             </span>
           )}
 
           <button
             type="button"
             onClick={handlePrint}
-            className="flex items-center gap-2 px-4 py-2 rounded-[10px] bg-[#008B94] hover:bg-[#00767E] text-white text-[12px] font-semibold transition-all shadow-sm"
+            className="flex items-center gap-2 px-4 py-2 rounded-[10px] bg-[#008B94] hover:bg-[#00767E] text-white text-[12px] font-semibold transition-all shadow-sm whitespace-nowrap shrink-0"
           >
-            <Printer className="w-4 h-4" />
+            <Printer className="w-4 h-4 shrink-0" />
             <span>Cetak Dokumen Resmi A4</span>
           </button>
         </div>
@@ -142,16 +142,16 @@ export const FormalMonthlyPnLView: React.FC<FormalMonthlyPnLViewProps> = ({
           {/* Section 1: Revenue */}
           <div>
             <div className="bg-neutral-100 font-bold px-3 py-1.5 border-y border-neutral-300 uppercase tracking-wide flex justify-between">
-              <span>1. PENDAPATAN USAHA (REVENUE)</span>
+              <span>1. PENDAPATAN USAHA</span>
               <span>Jumlah (Rp)</span>
             </div>
             <div className="divide-y divide-neutral-200">
               <div className="py-1 px-3 flex justify-between pl-6">
-                <span>Penjualan Obat Keras & Resep Dokter (Ethical)</span>
+                <span>Penjualan Obat Keras & Resep Dokter</span>
                 <span className="font-mono tabular-nums">{renderAmount(pnl.revenue.salesEthical)}</span>
               </div>
               <div className="py-1 px-3 flex justify-between pl-6">
-                <span>Penjualan Obat Bebas & P3K (OTC)</span>
+                <span>Penjualan Obat Bebas & P3K</span>
                 <span className="font-mono tabular-nums">{renderAmount(pnl.revenue.salesOTC)}</span>
               </div>
               <div className="py-1 px-3 flex justify-between pl-6">
@@ -171,7 +171,7 @@ export const FormalMonthlyPnLView: React.FC<FormalMonthlyPnLViewProps> = ({
                 <span className="font-mono tabular-nums">{renderAmount(pnl.revenue.feeEmbalaseWadah)}</span>
               </div>
               <div className="py-1.5 px-3 flex justify-between font-semibold bg-neutral-50/70">
-                <span>Total Penjualan Kotor (Gross Revenue)</span>
+                <span>Total Penjualan Kotor</span>
                 <span className="font-mono tabular-nums">{renderAmount(pnl.revenue.grossRevenue)}</span>
               </div>
               <div className="py-1 px-3 flex justify-between pl-6 text-neutral-600">
@@ -183,7 +183,7 @@ export const FormalMonthlyPnLView: React.FC<FormalMonthlyPnLViewProps> = ({
                 <span className="font-mono tabular-nums">{renderAmount(pnl.revenue.returnsSales, true)}</span>
               </div>
               <div className="py-2 px-3 flex justify-between font-bold bg-neutral-100/80 border-t border-neutral-300">
-                <span>TOTAL PENDAPATAN BERSIH (NET REVENUE)</span>
+                <span>TOTAL PENDAPATAN BERSIH</span>
                 <span className="font-mono tabular-nums text-teal-800">{renderAmount(pnl.revenue.netRevenue)}</span>
               </div>
             </div>
@@ -192,7 +192,7 @@ export const FormalMonthlyPnLView: React.FC<FormalMonthlyPnLViewProps> = ({
           {/* Section 2: COGS / HPP */}
           <div>
             <div className="bg-neutral-100 font-bold px-3 py-1.5 border-y border-neutral-300 uppercase tracking-wide flex justify-between">
-              <span>2. BEBAN POKOK PENJUALAN (HPP / COGS)</span>
+              <span>2. HARGA POKOK PENJUALAN (HPP)</span>
               <span>Jumlah (Rp)</span>
             </div>
             <div className="divide-y divide-neutral-200">
@@ -205,7 +205,7 @@ export const FormalMonthlyPnLView: React.FC<FormalMonthlyPnLViewProps> = ({
                 <span className="font-mono tabular-nums">{renderAmount(pnl.cogs.netPurchasesPBF)}</span>
               </div>
               <div className="py-1 px-3 flex justify-between pl-6 font-semibold bg-neutral-50/70">
-                <span>Barang Tersedia untuk Dijual (BTUD)</span>
+                <span>Barang Tersedia untuk Dijual</span>
                 <span className="font-mono tabular-nums">{renderAmount(pnl.cogs.goodsAvailableForSale)}</span>
               </div>
               <div className="py-1 px-3 flex justify-between pl-6 text-neutral-600">
@@ -213,7 +213,7 @@ export const FormalMonthlyPnLView: React.FC<FormalMonthlyPnLViewProps> = ({
                 <span className="font-mono tabular-nums">{renderAmount(pnl.cogs.endingInventory, true)}</span>
               </div>
               <div className="py-2 px-3 flex justify-between font-bold bg-neutral-100/80 border-t border-neutral-300">
-                <span>TOTAL BEBAN POKOK PENJUALAN (HPP)</span>
+                <span>TOTAL HARGA POKOK PENJUALAN (HPP)</span>
                 <span className="font-mono tabular-nums">{renderAmount(pnl.cogs.totalCOGS)}</span>
               </div>
             </div>
@@ -221,14 +221,14 @@ export const FormalMonthlyPnLView: React.FC<FormalMonthlyPnLViewProps> = ({
 
           {/* Gross Profit Highlight */}
           <div className="p-3 bg-teal-50 border border-teal-200 font-bold flex justify-between items-center text-[13px]">
-            <span className="text-teal-900">LABA KOTOR (GROSS PROFIT) &bull; Margin: {pnl.grossMarginPercent}%</span>
+            <span className="text-teal-900">LABA KOTOR &bull; Margin: {pnl.grossMarginPercent}%</span>
             <span className="font-mono tabular-nums text-teal-900">{renderAmount(pnl.grossProfit)}</span>
           </div>
 
           {/* Section 3: OPEX */}
           <div>
             <div className="bg-neutral-100 font-bold px-3 py-1.5 border-y border-neutral-300 uppercase tracking-wide flex justify-between">
-              <span>3. BEBAN OPERASIONAL (OPERATIONAL EXPENSES / OPEX)</span>
+              <span>3. BEBAN OPERASIONAL APOTEK</span>
               <span>Jumlah (Rp)</span>
             </div>
             <div className="divide-y divide-neutral-200">
@@ -237,7 +237,7 @@ export const FormalMonthlyPnLView: React.FC<FormalMonthlyPnLViewProps> = ({
                 <span className="font-mono tabular-nums">{renderAmount(pnl.opex.totalPersonnelCost)}</span>
               </div>
               <div className="py-1 px-3 flex justify-between pl-6">
-                <span>Beban Utilitas (Listrik Chiller/AC Obat, PDAM, Internet Fiber POS)</span>
+                <span>Beban Utilitas (Listrik Chiller/AC Obat, PDAM, Internet Apotek)</span>
                 <span className="font-mono tabular-nums">{renderAmount(pnl.opex.totalUtilitiesCost)}</span>
               </div>
               <div className="py-1 px-3 flex justify-between pl-6">
@@ -245,15 +245,15 @@ export const FormalMonthlyPnLView: React.FC<FormalMonthlyPnLViewProps> = ({
                 <span className="font-mono tabular-nums">{renderAmount(pnl.opex.totalOccupancyCost)}</span>
               </div>
               <div className="py-1 px-3 flex justify-between pl-6">
-                <span>Beban Pengemas Farmasi (Plastik Klip, Pot Salep, Kertas Thermal Kasir)</span>
+                <span>Beban Pengemas Farmasi (Plastik Klip, Pot Salep, Kertas Struk Kasir)</span>
                 <span className="font-mono tabular-nums">{renderAmount(pnl.opex.totalPackagingCost)}</span>
               </div>
               <div className="py-1 px-3 flex justify-between pl-6">
-                <span>Beban Kas Kecil Operasional Harian (Petty Cash Movements)</span>
+                <span>Beban Kas Kecil Operasional Harian</span>
                 <span className="font-mono tabular-nums">{renderAmount(pnl.opex.totalPettyCashMovementCost)}</span>
               </div>
               <div className="py-2 px-3 flex justify-between font-bold bg-neutral-100/80 border-t border-neutral-300">
-                <span>TOTAL BEBAN OPERASIONAL (OPEX)</span>
+                <span>TOTAL BEBAN OPERASIONAL</span>
                 <span className="font-mono tabular-nums">{renderAmount(pnl.opex.totalOPEX)}</span>
               </div>
             </div>
@@ -262,15 +262,15 @@ export const FormalMonthlyPnLView: React.FC<FormalMonthlyPnLViewProps> = ({
           {/* Section 4: Operating Profit & Net Profit */}
           <div className="space-y-1.5 pt-2">
             <div className="py-1.5 px-3 flex justify-between font-bold bg-neutral-100 border border-neutral-300">
-              <span>LABA OPERASIONAL / EBITDA</span>
+              <span>LABA OPERASIONAL</span>
               <span className="font-mono tabular-nums">{renderAmount(pnl.ebitdaOperatingProfit)}</span>
             </div>
             <div className="py-1 px-3 flex justify-between text-neutral-600 pl-6">
-              <span>Pendapatan / (Beban) Lain-lain Bersih (Bunga Bank & MDR EDC/QRIS)</span>
+              <span>Pendapatan / (Beban) Lain-lain Bersih (Bunga Bank & Potongan QRIS/EDC)</span>
               <span className="font-mono tabular-nums">{renderAmount(pnl.netOtherGainLoss)}</span>
             </div>
             <div className="py-1 px-3 flex justify-between font-semibold pl-6">
-              <span>Laba Sebelum Pajak (EBT)</span>
+              <span>Laba Sebelum Pajak</span>
               <span className="font-mono tabular-nums">{renderAmount(pnl.ebtPreTaxProfit)}</span>
             </div>
             <div className="py-1 px-3 flex justify-between text-neutral-600 pl-6">
@@ -278,7 +278,7 @@ export const FormalMonthlyPnLView: React.FC<FormalMonthlyPnLViewProps> = ({
               <span className="font-mono tabular-nums">{renderAmount(pnl.incomeTaxUMKM, true)}</span>
             </div>
             <div className="p-3 bg-emerald-50 border-2 border-emerald-600 font-bold flex justify-between items-center text-[14px]">
-              <span className="text-emerald-950">LABA BERSIH BULAN BERJALAN (NET PROFIT) &bull; Net Margin: {pnl.netMarginPercent}%</span>
+              <span className="text-emerald-950">LABA BERSIH BULAN BERJALAN &bull; Margin Bersih: {pnl.netMarginPercent}%</span>
               <span className="font-mono tabular-nums text-emerald-950">{renderAmount(pnl.netProfit)}</span>
             </div>
           </div>

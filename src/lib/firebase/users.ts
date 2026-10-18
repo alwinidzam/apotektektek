@@ -80,7 +80,7 @@ export const INITIAL_STAFF_ACCOUNTS: StaffUser[] = [
     phone: "0812-3456-7890",
     branch: "Apotek Kerso Waras (Pusat - Kedung)",
     avatar: "AN",
-    title: "Chief Executive Owner & Super Admin",
+    title: "Level 1 — Pemilik Apotek & Super Admin",
     supervisorPin: "123456",
     passwordHash: "f5bb4f1ac68640121cb5dd0edf14969e6580568f445e959ed988f234c332d312", // KersoWaras2026!#
     createdAt: "2026-01-01T08:00:00.000Z",
@@ -97,7 +97,7 @@ export const INITIAL_STAFF_ACCOUNTS: StaffUser[] = [
     phone: "0813-9876-5432",
     branch: "Apotek Kerso Waras (Pusat - Kedung)",
     avatar: "BS",
-    title: "Pemilik Sarana Apotek (PSA)",
+    title: "Level 1 — Pemilik Apotek (Akses Penuh)",
     supervisorPin: "888999",
     passwordHash: "c2f36cee4849872f97b387341b43f679c7d101b862121b344716407981ec8d1b", // OwnerKerso2026!
     createdAt: "2026-01-10T09:00:00.000Z",
@@ -114,7 +114,7 @@ export const INITIAL_STAFF_ACCOUNTS: StaffUser[] = [
     phone: "0812-8877-6655",
     branch: "Apotek Kerso Waras (Pusat - Kedung)",
     avatar: "FP",
-    title: "Apoteker Penanggung Jawab (APJ)",
+    title: "Level 2 — Petugas Gudang & Stok",
     pharmacistDetails: {
       sipaNumber: "19930812/SIPA_33.20/2022/2001",
       sipaExpiryDate: "2028-08-12",
@@ -138,7 +138,7 @@ export const INITIAL_STAFF_ACCOUNTS: StaffUser[] = [
     phone: "0856-1122-3344",
     branch: "Apotek Kerso Waras (Pusat - Kedung)",
     avatar: "DK",
-    title: "Kasir Shift Pagi (POS-01)",
+    title: "Level 3 — Kasir Pelayanan POS (Pagi)",
     cashierDetails: {
       terminalId: "POS-01",
       shiftAssignment: 1,
@@ -159,7 +159,7 @@ export const INITIAL_STAFF_ACCOUNTS: StaffUser[] = [
     phone: "0877-2233-4455",
     branch: "Apotek Kerso Waras (Pusat - Kedung)",
     avatar: "BS",
-    title: "Kasir Shift Siang (POS-02)",
+    title: "Level 3 — Kasir Pelayanan POS (Siang)",
     cashierDetails: {
       terminalId: "POS-02",
       shiftAssignment: 2,

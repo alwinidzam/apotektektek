@@ -251,8 +251,8 @@ export default function LoginPage() {
         <div className="w-full rounded-[22px] lg:rounded-[28px] p-5 sm:p-7 lg:p-10 flex flex-col justify-between flex-1 lg:col-span-5 xl:col-span-5 bg-white dark:bg-[#1C1C1E] overflow-hidden">
           
           <div className="my-auto max-w-sm w-full mx-auto">
-            {/* Brand Logo on Right (Visible prominently on Mobile, subtle on Desktop) */}
-            <div className="relative mx-auto mb-2 sm:mb-3 flex items-center justify-center">
+            {/* Brand Logo on Right (Visible on Mobile/Tablet when left panel is hidden) */}
+            <div className="lg:hidden relative mx-auto mb-2 sm:mb-3 flex items-center justify-center">
               <Image
                 src="/logo-kerso-waras.svg"
                 alt="Apotek Kerso Waras"
@@ -260,7 +260,7 @@ export default function LoginPage() {
                 height={99}
                 priority
                 unoptimized
-                className="w-14 h-auto sm:w-16 lg:w-[68px] max-h-16 lg:max-h-20 object-contain drop-shadow-[0_8px_24px_rgba(0,139,148,0.28)] dark:drop-shadow-[0_8px_24px_rgba(45,212,191,0.35)] select-none pointer-events-none"
+                className="w-14 h-auto sm:w-16 max-h-16 object-contain drop-shadow-[0_8px_24px_rgba(0,139,148,0.28)] dark:drop-shadow-[0_8px_24px_rgba(45,212,191,0.35)] select-none pointer-events-none"
               />
             </div>
 
@@ -388,7 +388,7 @@ export default function LoginPage() {
                     className="w-4 h-4 rounded-[5px] border-neutral-300 text-[#008B94] focus:ring-[#008B94]"
                   />
                   <span className="text-[11.5px] sm:text-[12px] text-neutral-600 dark:text-neutral-400">
-                    Ingat sesi staf di workstation ini
+                    Tetap masuk di perangkat ini
                   </span>
                 </label>
               </div>
@@ -411,13 +411,55 @@ export default function LoginPage() {
                   </>
                 )}
               </button>
+
+              {/* 3-Level RBAC Quick Fill Selector */}
+              <div className="pt-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#8E8E93] block text-center mb-1.5">
+                  Akun Demo Operasional (RBAC 3-Level)
+                </span>
+                <div className="grid grid-cols-3 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      soundEngine.playKeyTap();
+                      setUsername("owner");
+                      setPassword("owner123");
+                    }}
+                    className="py-1.5 px-2 rounded-[10px] border border-black/[0.08] dark:border-white/10 bg-[#F9F9FB] dark:bg-white/5 hover:border-[#008B94] text-[10.5px] font-bold text-[#1C1C1E] dark:text-white transition-all text-center"
+                  >
+                    Lv.1 Pemilik
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      soundEngine.playKeyTap();
+                      setUsername("gudang");
+                      setPassword("gudang123");
+                    }}
+                    className="py-1.5 px-2 rounded-[10px] border border-black/[0.08] dark:border-white/10 bg-[#F9F9FB] dark:bg-white/5 hover:border-[#008B94] text-[10.5px] font-bold text-[#1C1C1E] dark:text-white transition-all text-center"
+                  >
+                    Lv.2 Gudang
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      soundEngine.playKeyTap();
+                      setUsername("kasir1");
+                      setPassword("kasir123");
+                    }}
+                    className="py-1.5 px-2 rounded-[10px] border border-black/[0.08] dark:border-white/10 bg-[#F9F9FB] dark:bg-white/5 hover:border-[#008B94] text-[10.5px] font-bold text-[#1C1C1E] dark:text-white transition-all text-center"
+                  >
+                    Lv.3 Kasir
+                  </button>
+                </div>
+              </div>
             </form>
           </div>
 
           {/* Microtext Privacy & Security Footnote */}
           <div className="pt-3 sm:pt-4 text-center border-t border-neutral-100 dark:border-white/5 pb-[env(safe-area-inset-bottom,0px)]">
             <p className="text-[10px] sm:text-[11px] text-[#8E8E93] leading-relaxed max-w-xs mx-auto">
-              Akses terbatas untuk staf resmi Apotek Kerso Waras. Seluruh aktivitas login diaudit demi keamanan rekam medis.
+              Apotek Kerso Waras &bull; Sistem Manajemen Farmasi Terpadu
             </p>
           </div>
         </div>
@@ -431,7 +473,7 @@ export default function LoginPage() {
             <div className="flex items-center justify-between pb-3 border-b border-neutral-100 dark:border-neutral-800">
               <div className="flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4 text-[#008B94]" />
-                <h3 className="font-bold text-[14px]">Bantuan Autentikasi Staf</h3>
+                <h3 className="font-bold text-[14px]">Panduan Kredensial RBAC 3-Level</h3>
               </div>
               <button
                 type="button"
@@ -441,21 +483,21 @@ export default function LoginPage() {
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="py-4 space-y-3 text-[12px] text-neutral-600 dark:text-neutral-300 leading-relaxed">
-              <p>
-                Akun staf Apotek Kerso Waras dikelola terpusat oleh Pemilik Sarana Apotek (PSA) dan Apoteker Penanggung Jawab (APJ).
-              </p>
-              <div className="p-3 rounded-[12px] bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700">
-                <span className="font-bold text-[11px] block text-neutral-800 dark:text-white mb-1">
-                  Format ID Petugas:
-                </span>
-                <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
-                  Gunakan username staf (misal: <code>alwinizam</code>, <code>owner</code>, <code>apoteker</code>, <code>kasir1</code>, <code>kasir2</code>) atau alamat email resmi apotek yang telah didaftarkan.
-                </p>
+            <div className="py-4 space-y-2.5 text-[12px] text-neutral-600 dark:text-neutral-300 leading-relaxed">
+              <div className="p-3 rounded-[12px] bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700 space-y-1.5">
+                <div>
+                  <strong className="text-[#1C1C1E] dark:text-white">Level 1 — Pemilik Apotek (Akses Penuh):</strong>
+                  <div className="font-mono text-[11px] text-[#008B94]">ID: owner &bull; Sandi: owner123</div>
+                </div>
+                <div>
+                  <strong className="text-[#1C1C1E] dark:text-white">Level 2 — Petugas Gudang (Akses Menengah):</strong>
+                  <div className="font-mono text-[11px] text-[#008B94]">ID: gudang &bull; Sandi: gudang123</div>
+                </div>
+                <div>
+                  <strong className="text-[#1C1C1E] dark:text-white">Level 3 — Kasir (Akses Terbatas):</strong>
+                  <div className="font-mono text-[11px] text-[#008B94]">ID: kasir1 &bull; Sandi: kasir123</div>
+                </div>
               </div>
-              <p className="text-[11px] text-neutral-500">
-                Jika Anda lupa kata sandi atau akun terkunci, hubungi Administrator atau buka kunci melalui menu Kelola Staf di sesi Owner.
-              </p>
             </div>
             <button
               type="button"

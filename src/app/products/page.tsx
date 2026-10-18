@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, Suspense } from "react";
 import { useApotekStore } from "@/lib/store";
 import { DrugClass, Product } from "@/lib/types";
 import { formatRupiah } from "@/lib/utils";
@@ -26,10 +26,10 @@ import { ProductFormModal } from "@/components/products/ProductFormModal";
 import { BatchEntryModal } from "@/components/products/BatchEntryModal";
 import { Navbar } from "@/components/Navbar";
 import { AccessDenied } from "@/components/AccessDenied";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useSwipeGesture } from "@/hooks/useSwipeGesture";
 
-export default function ProductsPage() {
+function ProductsPageContent() {
   const { products, deleteProduct, currentUser, privacyMode, togglePrivacyMode } = useApotekStore();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -38,6 +38,20 @@ export default function ProductsPage() {
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [selectedForBatch, setSelectedForBatch] = useState<Product | null>(null);
+
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const category = searchParams.get("category");
+    if (category) {
+      setSelectedCategory(category);
+    }
+    const action = searchParams.get("action");
+    if (action === "new") {
+      setIsProductModalOpen(true);
+      setEditingProduct(null);
+    }
+  }, [searchParams]);
 
   // Role permissions
   const isCashier = currentUser.role === "KARYAWAN_KASIR";
@@ -159,22 +173,22 @@ export default function ProductsPage() {
     >
       <Navbar />
       {/* Page Header */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-5 sm:pt-8 pb-4 sm:pb-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-5 sm:pt-7 pb-4 sm:pb-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <h1 className="text-[18px] sm:text-[26px] font-bold tracking-tight text-[#1C1C1E] dark:text-white truncate">
-                <span className="sm:hidden">Master Produk</span>
-                <span className="hidden sm:inline">Master Produk & Setting HPP</span>
+              <h1 className="text-[18px] sm:text-[22px] font-bold tracking-tight text-[#1C1C1E] dark:text-white truncate">
+                <span className="sm:hidden">Katalog Obat</span>
+                <span className="hidden sm:inline">Katalog Obat & Pengaturan Harga</span>
               </h1>
               {isCashier && (
-                <span className="text-[10px] sm:text-[11px] px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 font-semibold shrink-0">
+                <span className="text-[10px] sm:text-[11px] px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 font-semibold shrink-0 whitespace-nowrap">
                   Mode Kasir
                 </span>
               )}
             </div>
             <p className="hidden sm:block text-[13px] text-[#8E8E93] mt-0.5">
-              Kelola katalog obat, formulasi harga pokok penjualan (HNA murni), markup laba, dan batch
+              Daftar produk obat, harga beli distributor (HNA), margin laba, dan lokasi penyimpanan rak.
             </p>
           </div>
 
@@ -183,15 +197,15 @@ export default function ProductsPage() {
               <button
                 type="button"
                 onClick={togglePrivacyMode}
-                className={`min-h-[40px] px-3.5 py-2 text-[12px] font-semibold rounded-[12px] border transition-all flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
+                className={`min-h-[38px] px-3.5 py-2 text-[12px] font-semibold rounded-[10px] border transition-all flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
                   privacyMode
                     ? "bg-amber-500 text-white border-amber-600 shadow-sm"
                     : "bg-white dark:bg-[#1C1C1E] border-black/[0.08] dark:border-white/[0.12] text-[#1C1C1E] dark:text-white hover:bg-neutral-50 shadow-sm"
                 }`}
-                title="Tutup angka finansial di hadapan staf/konsumen"
+                title="Sembunyikan angka harga beli & margin di layar"
               >
-                {privacyMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                <span>{privacyMode ? "Privasi Aktif" : "Privasi"}</span>
+                {privacyMode ? <EyeOff className="w-4 h-4 shrink-0" /> : <Eye className="w-4 h-4 shrink-0" />}
+                <span>{privacyMode ? "Sembunyikan Harga Aktif" : "Sembunyikan Harga"}</span>
               </button>
             )}
 
@@ -202,10 +216,10 @@ export default function ProductsPage() {
                   setEditingProduct(null);
                   setIsProductModalOpen(true);
                 }}
-                className="min-h-[40px] px-4 py-2 text-[12px] font-semibold rounded-[12px] bg-[#008B94] hover:bg-[#00767E] text-white transition-all shadow-sm flex items-center gap-1.5 shrink-0 whitespace-nowrap"
+                className="min-h-[38px] px-4 py-2 text-[12px] font-semibold rounded-[10px] bg-[#008B94] hover:bg-[#00767E] text-white transition-all shadow-sm flex items-center gap-1.5 shrink-0 whitespace-nowrap"
               >
-                <Plus className="w-4 h-4" />
-                <span>Tambah Produk</span>
+                <Plus className="w-4 h-4 shrink-0" />
+                <span>Tambah Obat Baru</span>
               </button>
             )}
           </div>
@@ -213,67 +227,67 @@ export default function ProductsPage() {
 
         {/* Executive Stats Bar (Owner / Super Admin Only) */}
         {isOwnerOrAdmin && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
-            <div className="bg-white dark:bg-[#1C1C1E] p-4 rounded-[16px] border border-black/[0.06] dark:border-white/[0.08] shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-              <span className="text-[11px] font-semibold text-[#8E8E93] uppercase tracking-wider block mb-1">
-                Total Valuasi Stok (HPP Netto)
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-5">
+            <div className="bg-white dark:bg-[#1C1C1E] p-4 rounded-[14px] border border-black/[0.06] dark:border-white/[0.08] shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
+              <span className="text-[11px] font-semibold text-[#8E8E93] uppercase tracking-wider block mb-1 whitespace-nowrap">
+                Nilai Modal Stok (HNA)
               </span>
-              <div className="text-[20px] font-bold text-[#1C1C1E] dark:text-white">
+              <div className="text-[20px] font-bold text-[#1C1C1E] dark:text-white whitespace-nowrap">
                 {formatPrivateAmount(totalValuationHPP)}
               </div>
               <span className="text-[11px] text-[#8E8E93] mt-1 block">
-                Total modal tersimpan di gudang & etalase
+                Total modal obat di gudang & rak
               </span>
             </div>
 
-            <div className="bg-white dark:bg-[#1C1C1E] p-4 rounded-[16px] border border-black/[0.06] dark:border-white/[0.08] shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-              <span className="text-[11px] font-semibold text-[#8E8E93] uppercase tracking-wider block mb-1">
-                Potensi Omset Penjualan (HJA)
+            <div className="bg-white dark:bg-[#1C1C1E] p-4 rounded-[14px] border border-black/[0.06] dark:border-white/[0.08] shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
+              <span className="text-[11px] font-semibold text-[#8E8E93] uppercase tracking-wider block mb-1 whitespace-nowrap">
+                Potensi Omzet Penjualan
               </span>
-              <div className="text-[20px] font-bold text-emerald-600 dark:text-emerald-400">
+              <div className="text-[20px] font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
                 {formatPrivateAmount(totalValuationHJA)}
               </div>
-              <span className="text-[11px] text-emerald-700/80 dark:text-emerald-400/80 mt-1 block">
-                Potensi Laba Kotor: {formatPrivateAmount(totalValuationHJA - totalValuationHPP)}
+              <span className="text-[11px] text-emerald-700/80 dark:text-emerald-400/80 mt-1 block whitespace-nowrap">
+                Estimasi Laba Kotor: {formatPrivateAmount(totalValuationHJA - totalValuationHPP)}
               </span>
             </div>
 
-            <div className="bg-white dark:bg-[#1C1C1E] p-4 rounded-[16px] border border-black/[0.06] dark:border-white/[0.08] shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-              <span className="text-[11px] font-semibold text-[#8E8E93] uppercase tracking-wider block mb-1">
-                Rata-rata Margin Markup
+            <div className="bg-white dark:bg-[#1C1C1E] p-4 rounded-[14px] border border-black/[0.06] dark:border-white/[0.08] shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
+              <span className="text-[11px] font-semibold text-[#8E8E93] uppercase tracking-wider block mb-1 whitespace-nowrap">
+                Rata-Rata Margin Laba
               </span>
-              <div className="text-[20px] font-bold text-[#007AFF]">
+              <div className="text-[20px] font-bold text-[#007AFF] whitespace-nowrap">
                 +{avgMarkup}%
               </div>
               <span className="text-[11px] text-[#8E8E93] mt-1 block">
-                Target marjin operasional apotek tercapai
+                Rata-rata margin seluruh produk
               </span>
             </div>
 
-            <div className="bg-white dark:bg-[#1C1C1E] p-4 rounded-[16px] border border-black/[0.06] dark:border-white/[0.08] shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-              <span className="text-[11px] font-semibold text-[#8E8E93] uppercase tracking-wider block mb-1">
-                Peringatan Restock (ROP)
+            <div className="bg-white dark:bg-[#1C1C1E] p-4 rounded-[14px] border border-black/[0.06] dark:border-white/[0.08] shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
+              <span className="text-[11px] font-semibold text-[#8E8E93] uppercase tracking-wider block mb-1 whitespace-nowrap">
+                Perlu Dipesan Ulang
               </span>
-              <div className="text-[20px] font-bold text-rose-600">
-                {lowStockCount} SKU
+              <div className="text-[20px] font-bold text-rose-600 whitespace-nowrap">
+                {lowStockCount} Obat
               </div>
               <span className="text-[11px] text-[#8E8E93] mt-1 block">
-                Stok mendekati atau di bawah batas minimum
+                Stok menyentuh batas minimum
               </span>
             </div>
           </div>
         )}
 
         {/* Toolbar & Filters */}
-        <div className="mt-6 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+        <div className="mt-5 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
           <div className="relative flex-1 max-w-md">
             <Search className="w-4 h-4 absolute left-3 top-2.5 text-[#8E8E93]" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Cari nama obat, generik, barcode, atau KFA..."
-              className="w-full pl-9 pr-3 py-2 text-[13px] bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/[0.12] rounded-[10px] outline-none focus:border-[#007AFF] shadow-sm"
+              placeholder="Cari nama obat, zat aktif, atau nomor barcode..."
+              className="w-full pl-9 pr-3 py-2 text-[13px] bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/[0.12] rounded-[10px] outline-none focus:border-[#008B94] shadow-sm"
             />
           </div>
 
@@ -284,8 +298,8 @@ export default function ProductsPage() {
                 { id: "BEBAS", label: "Bebas" },
                 { id: "BEBAS_TERBATAS", label: "Bebas Terbatas" },
                 { id: "KERAS", label: "Keras" },
-                { id: "CONTROLLED", label: "Narkotika/Psiko" },
-                { id: "HIGH_ALERT", label: "High-Alert/LASA" },
+                { id: "CONTROLLED", label: "Narkotika / Psikotropika" },
+                { id: "HIGH_ALERT", label: "Kewaspadaan Tinggi" },
               ]}
               activeId={selectedCategory}
               onChange={setSelectedCategory}
@@ -294,35 +308,36 @@ export default function ProductsPage() {
         </div>
 
         {/* Product Data Table */}
-        <div className="mt-5 w-full max-w-full min-w-0 bg-white dark:bg-[#1C1C1E] rounded-[18px] border border-black/[0.06] dark:border-white/[0.08] shadow-[0_2px_12px_rgba(0,0,0,0.03)] overflow-hidden">
+        <div className="mt-5 w-full max-w-full min-w-0 bg-white dark:bg-[#1C1C1E] rounded-[14px] border border-black/[0.06] dark:border-white/[0.08] shadow-[0_1px_3px_rgba(0,0,0,0.03)] overflow-hidden">
           <div className="w-full max-w-full min-w-0 overflow-x-auto">
-            <table className="w-full min-w-[850px] text-left text-[13px] border-collapse">
+            <table className="w-full min-w-[920px] text-left text-[13px] border-collapse">
               <thead>
-                <tr className="bg-[#F5F5F7]/80 dark:bg-[#2C2C2E]/80 backdrop-blur-md text-[#8E8E93] uppercase text-[11px] tracking-wider font-semibold border-b border-black/[0.06] dark:border-white/[0.08]">
-                  <th className="py-3 px-4">Produk & Generik</th>
-                  <th className="py-3 px-4">Golongan</th>
-                  <th className="py-3 px-4">Satuan Dasar</th>
-                  <th className="py-3 px-4 text-right">
-                    HPP Netto {isCashier ? "" : "(HNA)"}
+                <tr className="bg-[#F5F5F7]/80 dark:bg-[#2C2C2E]/80 backdrop-blur-md text-[#8E8E93] uppercase text-[10px] tracking-wider font-semibold border-b border-black/[0.06] dark:border-white/[0.08]">
+                  <th className="py-3 px-4 min-w-[260px] whitespace-nowrap">Nama Obat & Kandungan</th>
+                  <th className="py-3 px-4 whitespace-nowrap">Golongan</th>
+                  <th className="py-3 px-4 whitespace-nowrap">Satuan</th>
+                  <th className="py-3 px-4 text-right whitespace-nowrap">
+                    Harga Beli {isCashier ? "" : "(HNA)"}
                   </th>
-                  <th className="py-3 px-4 text-right">Markup (%)</th>
-                  <th className="py-3 px-4 text-right">Harga Jual (HJA)</th>
-                  <th className="py-3 px-4 text-center">Stok Total</th>
-                  <th className="py-3 px-4">Lokasi Rak</th>
-                  <th className="py-3 px-4 text-center">Aksi</th>
+                  <th className="py-3 px-4 text-right whitespace-nowrap">Margin (%)</th>
+                  <th className="py-3 px-4 text-right whitespace-nowrap">Harga Jual</th>
+                  <th className="py-3 px-4 text-center whitespace-nowrap">Stok Tersedia</th>
+                  <th className="py-3 px-4 whitespace-nowrap">Lokasi Rak</th>
+                  <th className="py-3 px-4 text-center whitespace-nowrap">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-black/[0.04] dark:divide-white/[0.06]">
                 {filteredProducts.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="py-12 text-center text-[#8E8E93]">
-                      Tidak ada produk yang cocok dengan pencarian & filter aktif.
+                      Tidak ada produk obat yang sesuai dengan pencarian atau filter.
                     </td>
                   </tr>
                 ) : (
                   filteredProducts.map((p) => {
                     const totalStock = p.batches.reduce((sum, b) => sum + b.currentStock, 0);
                     const isLowStock = totalStock <= p.minStockAlert;
+                    const unitLabel = p.baseUnit.charAt(0).toUpperCase() + p.baseUnit.slice(1).toLowerCase();
 
                     return (
                       <tr
@@ -330,26 +345,26 @@ export default function ProductsPage() {
                         className="hover:bg-neutral-50/80 dark:hover:bg-neutral-800/40 transition-colors"
                       >
                         {/* Name & Generic */}
-                        <td className="py-3.5 px-4">
+                        <td className="py-3.5 px-4 min-w-[260px]">
                           <div className="flex flex-col">
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-semibold text-[#1C1C1E] dark:text-white">
-                                {p.isLasa && p.tallManName ? p.tallManName : p.name}
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-semibold text-[#1C1C1E] dark:text-white whitespace-nowrap">
+                                {p.name}
                               </span>
                               {p.isHighAlert && (
-                                <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300">
-                                  HIGH ALERT
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 whitespace-nowrap shrink-0">
+                                  High Alert
                                 </span>
                               )}
                               {p.storageCondition === "CHILLER_2_8" && (
-                                <span className="p-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-950" title="Chiller 2-8°C">
+                                <span className="p-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-950 shrink-0" title="Simpan di Chiller (2–8°C)">
                                   <Thermometer className="w-3 h-3" />
                                 </span>
                               )}
                             </div>
-                            <span className="text-[11px] text-[#8E8E93]">{p.genericName} &bull; {p.manufacturer}</span>
-                            <div className="text-[10px] font-mono text-[#AEAEB2] mt-0.5">
-                              Barcode: {p.barcode} {p.kfaCode ? `| KFA: ${p.kfaCode}` : ""}
+                            <span className="text-[11px] text-[#8E8E93] mt-0.5">{p.genericName} &bull; {p.manufacturer}</span>
+                            <div className="text-[10px] font-mono text-[#AEAEB2] mt-0.5 whitespace-nowrap">
+                              Barcode: {p.barcode} {p.kfaCode ? `• KFA: ${p.kfaCode}` : ""}
                             </div>
                           </div>
                         </td>
@@ -365,7 +380,7 @@ export default function ProductsPage() {
 
                         {/* Base Unit */}
                         <td className="py-3.5 px-4 whitespace-nowrap font-medium text-[#636366] dark:text-[#AEAEB2]">
-                          {p.baseUnit}
+                          {unitLabel}
                         </td>
 
                         {/* HPP (Harga Netto Apotek) */}
@@ -394,16 +409,16 @@ export default function ProductsPage() {
                         {/* Total Stock */}
                         <td className="py-3.5 px-4 text-center whitespace-nowrap">
                           <span
-                            className={`inline-flex items-center gap-1 font-bold tabular-nums px-2 py-0.5 rounded-full text-[12px] ${
+                            className={`inline-flex items-center gap-1 font-bold tabular-nums px-2.5 py-0.5 rounded-full text-[12px] whitespace-nowrap ${
                               isLowStock
                                 ? "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300"
                                 : "bg-neutral-100 text-[#1C1C1E] dark:bg-neutral-800 dark:text-white"
                             }`}
                           >
-                            {isLowStock && <AlertTriangle className="w-3 h-3" />}
-                            {totalStock} {p.baseUnit}
+                            {isLowStock && <AlertTriangle className="w-3 h-3 shrink-0" />}
+                            {totalStock} {unitLabel}
                           </span>
-                          <span className="block text-[10px] text-[#8E8E93] mt-0.5">
+                          <span className="block text-[10px] text-[#8E8E93] mt-0.5 whitespace-nowrap">
                             {p.batches.length} batch
                           </span>
                         </td>
@@ -424,7 +439,7 @@ export default function ProductsPage() {
                                   setIsBatchModalOpen(true);
                                 }}
                                 className="p-1.5 text-[#007AFF] hover:bg-blue-50 dark:hover:bg-blue-950/50 rounded-[8px] transition-colors"
-                                title="Tambah Batch Penerimaan Barang"
+                                title="Tambah Batch Barang Masuk"
                               >
                                 <PackagePlus className="w-4 h-4" />
                               </button>
@@ -438,7 +453,7 @@ export default function ProductsPage() {
                                   setIsProductModalOpen(true);
                                 }}
                                 className="p-1.5 text-[#636366] hover:text-[#1C1C1E] hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-[8px] transition-colors"
-                                title="Edit Detail Produk & HPP"
+                                title="Ubah Data Obat & Harga"
                               >
                                 <Edit3 className="w-4 h-4" />
                               </button>
@@ -453,7 +468,7 @@ export default function ProductsPage() {
                                   }
                                 }}
                                 className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-[8px] transition-colors"
-                                title="Hapus Produk (Super Admin Only)"
+                                title="Hapus Produk"
                               >
                                 <Trash2 className="w-4 h-4" />
                               </button>
@@ -486,5 +501,13 @@ export default function ProductsPage() {
         product={selectedForBatch}
       />
     </div>
+  );
+}
+
+export default function ProductsPage() {
+  return (
+    <Suspense fallback={null}>
+      <ProductsPageContent />
+    </Suspense>
   );
 }

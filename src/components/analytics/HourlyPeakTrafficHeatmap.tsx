@@ -38,10 +38,10 @@ export const HourlyPeakTrafficHeatmap: React.FC<HourlyPeakTrafficHeatmapProps> =
           </div>
         </div>
 
-        <div className="flex items-center gap-2 text-[11px]">
-          <span className="inline-flex items-center gap-1 font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
-            <Zap className="w-3 h-3" />
-            <span>Rush Hour (09:00 - 11:00 & 17:00 - 20:00)</span>
+        <div className="flex items-center gap-2 text-[11px] shrink-0">
+          <span className="inline-flex items-center gap-1 font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 whitespace-nowrap">
+            <Zap className="w-3 h-3 shrink-0" />
+            <span>Jam Sibuk (09:00–11:00 & 17:00–20:00)</span>
           </span>
         </div>
       </div>
@@ -55,7 +55,7 @@ export const HourlyPeakTrafficHeatmap: React.FC<HourlyPeakTrafficHeatmapProps> =
             <div
               key={h.hourNumber}
               className="flex flex-col items-center gap-1.5 group"
-              title={`${h.hourString}: ${renderAmount(h.totalOmzet)} (${h.transactionCount} transaksi)`}
+              title={`${h.hourString}: ${renderAmount(h.totalOmzet)} (${h.transactionCount} struk)`}
             >
               {/* Bar */}
               <div className="w-full bg-neutral-100 dark:bg-neutral-800 h-28 rounded-[8px] flex items-end p-0.5 overflow-hidden">
@@ -81,8 +81,8 @@ export const HourlyPeakTrafficHeatmap: React.FC<HourlyPeakTrafficHeatmapProps> =
               </span>
 
               {/* Transactions count badge */}
-              <span className="text-[9px] text-[#8E8E93] tabular-nums font-mono">
-                {h.transactionCount}tx
+              <span className="text-[9px] text-[#8E8E93] tabular-nums font-mono whitespace-nowrap">
+                {h.transactionCount} struk
               </span>
             </div>
           );

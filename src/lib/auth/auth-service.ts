@@ -22,22 +22,26 @@ const SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours shift session
 
 // Known official seed passwords mapping for direct matching
 export const SEED_ACCEPTED_PASSWORDS: Record<string, string[]> = {
-  alwinizam: ["admin123", "admin", "123456", "KersoWaras2026!#", "KersoWaras2026!"],
-  "alwinizam0405@gmail.com": ["admin123", "admin", "123456", "KersoWaras2026!#", "KersoWaras2026!"],
-  admin: ["admin123", "admin", "123456", "KersoWaras2026!#", "KersoWaras2026!"],
-  superadmin: ["admin123", "admin", "123456", "KersoWaras2026!#", "KersoWaras2026!"],
-  owner: ["owner123", "owner", "888999", "OwnerKerso2026!", "123456"],
-  "owner@kersowaras.com": ["owner123", "owner", "888999", "OwnerKerso2026!", "123456"],
-  "owner.bambang@kersowaras.com": ["owner123", "owner", "888999", "OwnerKerso2026!", "123456"],
-  apoteker: ["apoteker123", "apoteker", "456789", "ApotekerFarhan2026!", "123456"],
-  "apoteker@kersowaras.com": ["apoteker123", "apoteker", "456789", "ApotekerFarhan2026!", "123456"],
-  "apoteker.farhan@kersowaras.com": ["apoteker123", "apoteker", "456789", "ApotekerFarhan2026!", "123456"],
-  kasir1: ["kasir123", "kasir1", "112233", "KasirDinda2026!", "123456"],
-  "kasir1@kersowaras.com": ["kasir123", "kasir1", "112233", "KasirDinda2026!", "123456"],
-  "kasir.dinda@kersowaras.com": ["kasir123", "kasir1", "112233", "KasirDinda2026!", "123456"],
-  kasir2: ["kasir123", "kasir2", "223344", "KasirBudi2026!", "123456"],
-  "kasir2@kersowaras.com": ["kasir123", "kasir2", "223344", "KasirBudi2026!", "123456"],
-  "kasir.budi@kersowaras.com": ["kasir123", "kasir2", "223344", "KasirBudi2026!", "123456"],
+  alwinizam: ["admin123", "AlwiNizam#2026", "admin", "123456", "KersoWaras2026!#", "KersoWaras2026!"],
+  "alwinizam0405@gmail.com": ["admin123", "AlwiNizam#2026", "admin", "123456", "KersoWaras2026!#", "KersoWaras2026!"],
+  admin: ["admin123", "AlwiNizam#2026", "admin", "123456", "KersoWaras2026!#", "KersoWaras2026!"],
+  superadmin: ["admin123", "AlwiNizam#2026", "admin", "123456", "KersoWaras2026!#", "KersoWaras2026!"],
+  owner: ["owner123", "AlwiNizam#2026", "owner", "pemilik123", "888999", "OwnerKerso2026!", "123456"],
+  pemilik: ["owner123", "AlwiNizam#2026", "owner", "pemilik123", "888999", "OwnerKerso2026!", "123456"],
+  "owner@kersowaras.com": ["owner123", "AlwiNizam#2026", "owner", "pemilik123", "888999", "OwnerKerso2026!", "123456"],
+  "owner.bambang@kersowaras.com": ["owner123", "AlwiNizam#2026", "owner", "pemilik123", "888999", "OwnerKerso2026!", "123456"],
+  apoteker: ["apoteker123", "Apoteker#2026", "apoteker", "gudang123", "gudang", "456789", "ApotekerFarhan2026!", "123456"],
+  gudang: ["gudang123", "Apoteker#2026", "gudang", "apoteker123", "apoteker", "456789", "ApotekerFarhan2026!", "123456"],
+  petugasgudang: ["gudang123", "Apoteker#2026", "gudang", "apoteker123", "apoteker", "456789", "ApotekerFarhan2026!", "123456"],
+  "apoteker@kersowaras.com": ["apoteker123", "Apoteker#2026", "apoteker", "gudang123", "gudang", "456789", "ApotekerFarhan2026!", "123456"],
+  "apoteker.farhan@kersowaras.com": ["apoteker123", "Apoteker#2026", "apoteker", "gudang123", "gudang", "456789", "ApotekerFarhan2026!", "123456"],
+  kasir: ["kasir123", "Kasir#2026", "kasir", "kasir1", "112233", "KasirDinda2026!", "123456"],
+  kasir1: ["kasir123", "Kasir#2026", "kasir", "kasir1", "112233", "KasirDinda2026!", "123456"],
+  "kasir1@kersowaras.com": ["kasir123", "Kasir#2026", "kasir", "kasir1", "112233", "KasirDinda2026!", "123456"],
+  "kasir.dinda@kersowaras.com": ["kasir123", "Kasir#2026", "kasir", "kasir1", "112233", "KasirDinda2026!", "123456"],
+  kasir2: ["kasir123", "Kasir#2026", "kasir", "kasir2", "223344", "KasirBudi2026!", "123456"],
+  "kasir2@kersowaras.com": ["kasir123", "Kasir#2026", "kasir", "kasir2", "223344", "KasirBudi2026!", "123456"],
+  "kasir.budi@kersowaras.com": ["kasir123", "Kasir#2026", "kasir", "kasir2", "223344", "KasirBudi2026!", "123456"],
 };
 
 // Hash password with SHA-256 using native Web Crypto API
@@ -153,12 +157,17 @@ export async function authenticateCredentials(
       admin: "alwinizam",
       superadmin: "alwinizam",
       alwi: "alwinizam",
+      pemilik: "owner",
       "owner@kersowaras.com": "owner",
       bambang: "owner",
       psa: "owner",
+      gudang: "apoteker",
+      petugasgudang: "apoteker",
+      "gudang@kersowaras.com": "apoteker",
       "apoteker@kersowaras.com": "apoteker",
       farhan: "apoteker",
       apj: "apoteker",
+      kasir: "kasir1",
       "kasir1@kersowaras.com": "kasir1",
       dinda: "kasir1",
       pos1: "kasir1",
@@ -352,53 +361,101 @@ export function destroySession() {
 // Official Seed Passwords Reference (for Administrator Documentation)
 export const OFFICIAL_SEED_CREDENTIALS = [
   {
-    roleName: "Super Admin",
-    fullName: "Alwi Nizam",
-    username: "alwinizam",
-    email: "alwinizam0405@gmail.com",
-    initialPassword: "KersoWaras2026!#",
-    supervisorPin: "123456",
-    role: "SUPER_ADMIN" as UserRole,
-    accessSummary: "Akses Otoritas Penuh: Konfigurasi Sistem, User Management, Laba/HPP, Audit Log, dan POS",
-  },
-  {
-    roleName: "Owner / PSA",
+    roleName: "Level 1 — Pemilik Apotek (Akses Penuh)",
     fullName: "dr. H. Bambang Soedibyo, Sp.Rad",
     username: "owner",
     email: "owner.bambang@kersowaras.com",
-    initialPassword: "OwnerKerso2026!",
+    initialPassword: "owner123",
     supervisorPin: "888999",
     role: "OWNER" as UserRole,
-    accessSummary: "Akses Eksekutif: Laba Kotor, Valuasi Persediaan HPP, Audit Shift, dan User Management",
+    accessSummary:
+      "Level 1 (Akses Penuh): Membuka seluruh menu, memantau laporan keuangan omzet, serta menyetujui Purchase Order (PO) pemesanan barang ke supplier.",
   },
   {
-    roleName: "Apoteker (APJ)",
+    roleName: "Level 1 — Super Admin & Pemilik",
+    fullName: "Alwi Nizam",
+    username: "alwinizam",
+    email: "alwinizam0405@gmail.com",
+    initialPassword: "admin123",
+    supervisorPin: "123456",
+    role: "SUPER_ADMIN" as UserRole,
+    accessSummary:
+      "Level 1 (Akses Penuh): Hak akses penuh seluruh sistem, laporan keuangan omzet, persetujuan PO supplier, dan pengaturan RBAC.",
+  },
+  {
+    roleName: "Level 2 — Petugas Gudang (Akses Menengah)",
     fullName: "apt. Farhan Pratama, S.Farm",
-    username: "apoteker",
+    username: "gudang (atau apoteker)",
     email: "apoteker.farhan@kersowaras.com",
-    initialPassword: "ApotekerFarhan2026!",
+    initialPassword: "gudang123",
     supervisorPin: "456789",
     role: "KARYAWAN_APOTEKER" as UserRole,
-    accessSummary: "Akses Farmasi Klinis: Resep Racikan, SIPNAP Kemenkes, Master Produk, dan Pengadaan PBF",
+    accessSummary:
+      "Level 2 (Akses Menengah): Mengelola data stok obat, mencatat barang masuk dari supplier, mengeksekusi Stock Opname, dan membuat draf PO.",
   },
   {
-    roleName: "Kasir Senior",
+    roleName: "Level 3 — Kasir (Akses Terbatas)",
     fullName: "Dinda Kirana",
     username: "kasir1",
     email: "kasir.dinda@kersowaras.com",
-    initialPassword: "KasirDinda2026!",
+    initialPassword: "kasir123",
     supervisorPin: "112233",
     role: "KARYAWAN_KASIR" as UserRole,
-    accessSummary: "Akses Kasir POS: Penjualan, Buka/Tutup Shift Laci, dan Kas Kecil (HPP dirahasiakan)",
+    accessSummary:
+      "Level 3 (Akses Terbatas): Difokuskan khusus pada pelayanan transaksi penjualan kasir POS dan pencarian sisa stok obat.",
   },
   {
-    roleName: "Kasir Junior",
+    roleName: "Level 3 — Kasir Shift Siang (Akses Terbatas)",
     fullName: "Budi Santoso",
     username: "kasir2",
     email: "kasir.budi@kersowaras.com",
-    initialPassword: "KasirBudi2026!",
+    initialPassword: "kasir123",
     supervisorPin: "223344",
     role: "KARYAWAN_KASIR" as UserRole,
-    accessSummary: "Akses Kasir POS: Penjualan dan Setoran Kasir Shift Siang (HPP dirahasiakan)",
+    accessSummary:
+      "Level 3 (Akses Terbatas): Pelayanan transaksi penjualan kasir POS dan pencarian sisa stok obat (Harga beli/HPP dikunci).",
   },
 ];
+
+export interface RbacLevelInfo {
+  level: 1 | 2 | 3;
+  levelBadge: string;
+  roleTitle: string;
+  shortLabel: string;
+  description: string;
+}
+
+export function getRbacLevelInfo(role: UserRole): RbacLevelInfo {
+  switch (role) {
+    case "OWNER":
+    case "SUPER_ADMIN":
+      return {
+        level: 1,
+        levelBadge: "Level 1 — Akses Penuh",
+        roleTitle: "Pemilik Apotek",
+        shortLabel: "Lv.1 Pemilik Apotek",
+        description:
+          "Akses penuh seluruh menu, memantau laporan keuangan omzet, dan menyetujui Purchase Order (PO) ke supplier.",
+      };
+    case "KARYAWAN_APOTEKER":
+      return {
+        level: 2,
+        levelBadge: "Level 2 — Akses Menengah",
+        roleTitle: "Petugas Gudang",
+        shortLabel: "Lv.2 Petugas Gudang",
+        description:
+          "Mengelola data stok obat, mencatat barang masuk dari supplier, dan mengeksekusi Stock Opname.",
+      };
+    case "KARYAWAN_KASIR":
+    default:
+      return {
+        level: 3,
+        levelBadge: "Level 3 — Akses Terbatas",
+        roleTitle: "Kasir",
+        shortLabel: "Lv.3 Kasir POS",
+        description:
+          "Difokuskan pada pelayanan transaksi penjualan kasir dan pencarian sisa stok obat.",
+      };
+  }
+}
+

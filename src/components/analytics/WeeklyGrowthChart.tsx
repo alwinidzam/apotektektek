@@ -30,10 +30,10 @@ export const WeeklyGrowthChart: React.FC<WeeklyGrowthChartProps> = ({
           </span>
           <div>
             <h3 className="text-[17px] font-bold text-[#1C1C1E] dark:text-white">
-              Performa & Pertumbuhan Mingguan (WoW)
+              Performa & Pertumbuhan Mingguan
             </h3>
             <p className="text-[12px] text-[#8E8E93]">
-              Progresivitas omzet 4 pekan kalender, margin laba kotor, dan hari tersibuk apotek
+              Perkembangan omzet 4 minggu berjalan, laba kotor, dan hari paling ramai
             </p>
           </div>
         </div>
@@ -46,25 +46,25 @@ export const WeeklyGrowthChart: React.FC<WeeklyGrowthChartProps> = ({
           return (
             <div
               key={week.weekNumber}
-              className="p-4 rounded-[18px] bg-neutral-50 dark:bg-[#2C2C2E]/50 border border-black/[0.04] dark:border-white/[0.06] flex flex-col justify-between"
+              className="p-4 rounded-[16px] bg-neutral-50 dark:bg-[#2C2C2E]/50 border border-black/[0.04] dark:border-white/[0.06] flex flex-col justify-between"
             >
               <div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[13px] font-bold text-[#1C1C1E] dark:text-white">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[13px] font-bold text-[#1C1C1E] dark:text-white whitespace-nowrap">
                     {week.weekLabel}
                   </span>
                   {week.growthWoWPercent !== 0 && (
                     <span
-                      className={`inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                      className={`inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap shrink-0 ${
                         week.growthWoWPercent > 0
                           ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
                           : "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300"
                       }`}
                     >
                       {week.growthWoWPercent > 0 ? (
-                        <ArrowUpRight className="w-3 h-3" />
+                        <ArrowUpRight className="w-3 h-3 shrink-0" />
                       ) : (
-                        <ArrowDownRight className="w-3 h-3" />
+                        <ArrowDownRight className="w-3 h-3 shrink-0" />
                       )}
                       {week.growthWoWPercent > 0 ? `+${week.growthWoWPercent}%` : `${week.growthWoWPercent}%`}
                     </span>

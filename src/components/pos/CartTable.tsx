@@ -1,178 +1,433 @@
 "use client";
 
-import { Trash2, AlertTriangle, ShieldAlert, FlaskConical, Layers } from "lucide-react";
+import { useState } from "react";
+import {
+  Trash2,
+  AlertTriangle,
+  ShoppingCart,
+  Tag,
+  LayoutList,
+  Table as TableIcon,
+  MapPin,
+  Calendar,
+} from "lucide-react";
 import { useApotekStore } from "@/lib/store";
 import { formatRupiah, getDaysUntilExpiry, getExpiryStatus } from "@/lib/utils";
+import { showAppleToast } from "@/components/ui/AppleToast";
+import { soundEngine } from "@/lib/audio";
+
+const SIGNA_PRESETS = [
+  "3 x sehari 1 Sesudah Makan",
+  "3 x sehari 1 Sebelum Makan",
+  "2 x sehari 1 Sesudah Makan",
+  "1 x sehari 1 Pagi Hari",
+  "1 x sehari 1 Malam Hari",
+  "3 x sehari 1 (Habiskan - Antibiotik)",
+  "Bila perlu (Demam / Nyeri)",
+  "Pemakaian Luar (Oleskan tipis)",
+];
+
+function formatShortDate(isoStr: string): string {
+  const d = new Date(isoStr);
+  if (isNaN(d.getTime())) return isoStr.split("T")[0];
+  return d.toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function formatUnitName(unit: string): string {
+  if (!unit) return "Unit";
+  return unit.charAt(0).toUpperCase() + unit.slice(1).toLowerCase();
+}
 
 export function CartTable() {
-  const { cart, densityMode, updateQuantity, removeFromCart } = useApotekStore();
+  const { cart, products, updateQuantity, updateItemSigna, removeFromCart } =
+    useApotekStore();
+
+  const [viewMode, setViewMode] = useState<"card" | "table">("card");
 
   if (cart.length === 0) {
     return (
-      <div className="h-full min-h-[380px] flex flex-col items-center justify-center p-8 text-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl bg-white/40 dark:bg-slate-900/40">
-        <div className="h-16 w-16 rounded-3xl bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center text-emerald-600 dark:text-emerald-400 mb-4 shadow-inner">
-          <Layers className="h-8 w-8 stroke-[1.8]" />
+      <div className="h-full min-h-[260px] flex flex-col items-center justify-center p-8 text-center border border-dashed border-neutral-200 dark:border-white/[0.1] rounded-xl bg-white dark:bg-[#141416]">
+        <div className="h-11 w-11 rounded-xl bg-neutral-100 dark:bg-white/[0.06] text-neutral-400 flex items-center justify-center mb-3">
+          <ShoppingCart className="h-5 w-5" />
         </div>
-        <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200">
-          Keranjang Kasir Masih Kosong
+        <h3 className="text-[13.5px] font-semibold text-neutral-900 dark:text-white">
+          Belum ada obat di keranjang
         </h3>
-        <p className="text-xs text-slate-500 max-w-sm mt-1 mb-4">
-          Pindai barcode obat, tekan <span className="kbd-badge">F2</span> untuk cari, atau tekan{" "}
-          <span className="kbd-badge">F3</span> untuk membuat racikan baru.
+        <p className="text-[12px] text-neutral-500 max-w-sm mt-0.5">
+          Cari nama obat pada kolom di atas atau klik produk pada katalog di sebelah kanan.
         </p>
       </div>
     );
   }
 
-  const isDense = densityMode === "DENSE";
-
   return (
-    <div className="w-full max-w-full min-w-0 overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md shadow-sm">
-      <table className="w-full min-w-[560px] text-left text-xs border-collapse">
-        <thead>
-          <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/75 dark:bg-slate-800/40 text-slate-500 font-semibold">
-            <th className={`px-3 ${isDense ? "py-2" : "py-3"} w-10 text-center`}>No</th>
-            <th className={`px-4 ${isDense ? "py-2" : "py-3"} min-w-[200px]`}>Nama Obat & Golongan</th>
-            <th className={`px-3 ${isDense ? "py-2" : "py-3"} w-36`}>Batch & Expired (FEFO)</th>
-            <th className={`px-3 ${isDense ? "py-2" : "py-3"} text-right w-28`}>Harga Satuan</th>
-            <th className={`px-3 ${isDense ? "py-2" : "py-3"} text-center w-36 min-w-[136px]`}>Qty / Satuan</th>
-            <th className={`px-4 ${isDense ? "py-2" : "py-3"} text-right w-28`}>Subtotal</th>
-            <th className={`px-3 ${isDense ? "py-2" : "py-3"} text-center w-12`}>Aksi</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+    <div className="flex flex-col gap-2 w-full max-w-full min-w-0">
+      {/* Apple HIG Cart View Mode Bar */}
+      <div className="shrink-0 flex items-center justify-between px-1 text-[11.5px]">
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-neutral-700 dark:text-neutral-300">
+            Daftar Obat
+          </span>
+          <span className="px-2 py-0.5 rounded-full font-mono text-[10px] font-bold bg-[#00767E]/10 text-[#00767E] dark:text-teal-300">
+            {cart.length} Item
+          </span>
+        </div>
+
+        {/* View Mode Switcher: Card Row vs Compact Table */}
+        <div className="inline-flex p-0.5 rounded-lg bg-neutral-100 dark:bg-white/[0.06] border border-neutral-200/80 dark:border-white/10">
+          <button
+            type="button"
+            onClick={() => {
+              soundEngine.playKeyTap();
+              setViewMode("card");
+            }}
+            className={`px-2 py-1 rounded-md text-[11px] font-medium flex items-center gap-1.5 transition-all ${
+              viewMode === "card"
+                ? "bg-white dark:bg-[#1C1C1E] text-neutral-900 dark:text-white font-semibold shadow-2xs"
+                : "text-neutral-500 hover:text-neutral-900 dark:hover:text-white"
+            }`}
+            title="Tampilan Kartu Rinci (Rekomendasi Apple HIG - Bebas Terpotong)"
+          >
+            <LayoutList className="w-3 h-3" />
+            <span>Kartu</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              soundEngine.playKeyTap();
+              setViewMode("table");
+            }}
+            className={`px-2 py-1 rounded-md text-[11px] font-medium flex items-center gap-1.5 transition-all ${
+              viewMode === "table"
+                ? "bg-white dark:bg-[#1C1C1E] text-neutral-900 dark:text-white font-semibold shadow-2xs"
+                : "text-neutral-500 hover:text-neutral-900 dark:hover:text-white"
+            }`}
+            title="Tampilan Tabel Kompak"
+          >
+            <TableIcon className="w-3 h-3" />
+            <span>Tabel</span>
+          </button>
+        </div>
+      </div>
+
+      {/* =========================================================================
+          VIEW 1: APPLE HIG CARD ROW LAYOUT (Default: Zero Clipping, High Ergonomics)
+      ========================================================================= */}
+      {viewMode === "card" ? (
+        <div className="space-y-2 w-full min-w-0">
           {cart.map((item, idx) => {
-            const daysLeft = getDaysUntilExpiry(item.selectedBatch.expiryDate);
+            const liveProd =
+              products.find((p) => p.id === item.product.id) || item.product;
+            const liveBatch =
+              liveProd.batches.find((b) => b.id === item.selectedBatch.id) ||
+              item.selectedBatch;
+            const availableStock = liveBatch.currentStock;
+            const daysLeft = getDaysUntilExpiry(liveBatch.expiryDate);
             const expiryStatus = getExpiryStatus(daysLeft);
 
+            const handleIncrement = () => {
+              const nextQty = item.quantity + 1;
+              if (nextQty * item.unitMultiplier > availableStock) {
+                showAppleToast({
+                  type: "warning",
+                  title: "Batas Stok Fisik",
+                  message: `Sisa stok ${item.product.name} (${liveBatch.locationRack}) tersedia ${availableStock} ${formatUnitName(item.product.baseUnit)}.`,
+                });
+                return;
+              }
+              soundEngine.playKeyTap();
+              updateQuantity(item.cartItemId, nextQty);
+            };
+
+            const handleDecrement = () => {
+              soundEngine.playKeyTap();
+              updateQuantity(item.cartItemId, item.quantity - 1);
+            };
+
             return (
-              <tr
+              <div
                 key={item.cartItemId}
-                className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors group"
+                className="w-full bg-white dark:bg-[#141416] p-3 rounded-xl border border-neutral-200/80 dark:border-white/[0.08] shadow-2xs hover:border-[#00767E]/40 transition-colors flex flex-col gap-2.5 min-w-0"
               >
-                {/* Index */}
-                <td className="px-3 py-2 text-center font-mono text-slate-400 font-medium">
-                  {idx + 1}
-                </td>
-
-                {/* Product Name & Badges */}
-                <td className="px-4 py-2 min-w-0">
-                  <div className="flex flex-col gap-1 min-w-0">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="font-semibold text-slate-900 dark:text-white truncate">
-                        {item.isRacikan ? (
-                          <span className="text-teal-700 dark:text-teal-300 flex items-center gap-1">
-                            <FlaskConical className="h-3.5 w-3.5 shrink-0" />
-                            {item.product.name}
-                          </span>
-                        ) : item.product.isLasa && item.product.tallManName ? (
-                          <span className="text-amber-700 dark:text-amber-300 font-bold bg-amber-50 dark:bg-amber-950/40 px-1 rounded">
-                            {item.product.tallManName}
-                          </span>
-                        ) : (
-                          item.product.name
-                        )}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      {/* Drug Class Badge */}
-                      <span
-                        className={`px-1.5 py-0.2 text-[9px] font-bold rounded ${
-                          item.product.drugClass === "NARKOTIKA"
-                            ? "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300"
-                            : item.product.drugClass === "PSIKOTROPIKA"
-                            ? "bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300"
-                            : item.product.drugClass === "KERAS"
-                            ? "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300"
-                            : item.product.drugClass === "OOT"
-                            ? "bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300"
-                            : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
-                        }`}
-                      >
-                        {item.product.drugClass}
-                      </span>
-
-                      {/* High Alert Flag */}
-                      {item.product.isHighAlert && (
-                        <span className="flex items-center gap-0.5 text-[9px] font-bold text-red-600 bg-red-50 dark:bg-red-950/40 px-1 py-0.2 rounded border border-red-200">
-                          <ShieldAlert className="h-2.5 w-2.5" /> High-Alert
-                        </span>
-                      )}
-
-                      <span className="text-[11px] text-slate-400 truncate max-w-[220px]">
-                        {item.product.genericName} &bull; {item.selectedBatch.locationRack}
-                      </span>
+                {/* Line 1: Identity & Delete */}
+                <div className="flex items-start justify-between gap-2 min-w-0">
+                  <div className="flex items-start gap-2 min-w-0">
+                    <span className="w-5 h-5 rounded-md bg-neutral-100 dark:bg-white/[0.06] text-neutral-500 font-mono text-[10.5px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                      {idx + 1}
+                    </span>
+                    <div className="min-w-0">
+                      <h4 className="font-bold text-[13.5px] text-neutral-900 dark:text-white leading-snug truncate">
+                        {item.product.name}
+                      </h4>
+                      <p className="text-[11px] text-neutral-500 truncate">
+                        {item.product.genericName}
+                      </p>
                     </div>
                   </div>
-                </td>
 
-                {/* Batch & Expiry FEFO */}
-                <td className="px-3 py-2">
-                  <div className="flex flex-col gap-0.5">
-                    <span className="font-mono text-slate-700 dark:text-slate-300 font-medium">
-                      {item.selectedBatch.batchNumber}
+                  {/* Price & Delete Action */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="font-mono font-semibold text-[12px] text-neutral-700 dark:text-neutral-300 tabular-nums">
+                      {formatRupiah(item.unitPrice)} / {formatUnitName(item.selectedUnit)}
                     </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        soundEngine.playKeyTap();
+                        removeFromCart(item.cartItemId);
+                      }}
+                      className="p-1.5 rounded-lg text-neutral-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                      title="Hapus obat dari keranjang"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Line 2: Shelf Rack Location, Stock, and Expiry Warnings */}
+                <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-neutral-100 dark:bg-white/[0.06] text-neutral-700 dark:text-neutral-300 font-mono font-medium">
+                    <MapPin className="w-3 h-3 text-neutral-400 shrink-0" />
+                    <span>{liveBatch.locationRack}</span>
+                  </span>
+
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-mono font-semibold border border-emerald-200/60 dark:border-emerald-800/60">
+                    <span>Stok: {availableStock} {formatUnitName(item.product.baseUnit)}</span>
+                  </span>
+
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-neutral-50 dark:bg-white/[0.04] text-neutral-500 font-mono border border-neutral-200/60 dark:border-white/10">
+                    <Calendar className="w-3 h-3 text-neutral-400 shrink-0" />
+                    <span>ED {formatShortDate(liveBatch.expiryDate)}</span>
+                  </span>
+
+                  {daysLeft <= 60 && (
                     <span
-                      className={`inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[10px] font-medium border ${expiryStatus.badgeBg}`}
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10.5px] font-semibold border ${expiryStatus.badgeBg}`}
                     >
-                      {daysLeft < 30 && <AlertTriangle className="h-2.5 w-2.5" />}
-                      {item.selectedBatch.expiryDate.split("T")[0]} ({daysLeft} hr)
+                      <AlertTriangle className="h-3 w-3 shrink-0" />
+                      <span>{daysLeft} hari lagi</span>
+                    </span>
+                  )}
+                </div>
+
+                {/* Line 3: Clinical Etiket / Aturan Pakai (Full-Width Responsive Input) */}
+                <div className="flex items-center gap-2 pt-0.5">
+                  <Tag className="w-3.5 h-3.5 text-[#00767E] dark:text-teal-400 shrink-0" />
+                  <input
+                    type="text"
+                    list={`signa-list-${item.cartItemId}`}
+                    value={item.signaUsage || ""}
+                    onChange={(e) =>
+                      updateItemSigna(item.cartItemId, e.target.value)
+                    }
+                    placeholder="Aturan pakai etiket (mis. 3 x sehari 1 Tablet Sesudah Makan)"
+                    className="flex-1 px-2.5 py-1.5 rounded-lg border border-neutral-200 dark:border-white/10 bg-neutral-50 dark:bg-[#1C1C1E] text-[11.5px] text-neutral-800 dark:text-neutral-200 placeholder:text-neutral-400 focus:outline-none focus:border-[#00767E] transition-colors"
+                  />
+                  <datalist id={`signa-list-${item.cartItemId}`}>
+                    {SIGNA_PRESETS.map((preset) => (
+                      <option key={preset} value={preset} />
+                    ))}
+                  </datalist>
+                </div>
+
+                {/* Line 4: Tactile Stepper & Subtotal */}
+                <div className="pt-2 border-t border-neutral-100 dark:border-white/[0.06] flex items-center justify-between gap-3">
+                  {/* Quantity Stepper */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-neutral-400 font-medium hidden sm:inline">
+                      Jumlah:
+                    </span>
+                    <div className="inline-flex items-center gap-1 bg-neutral-100 dark:bg-white/[0.06] p-0.5 rounded-lg border border-neutral-200/80 dark:border-white/10">
+                      <button
+                        type="button"
+                        onClick={handleDecrement}
+                        className="h-7 w-7 rounded-md bg-white dark:bg-[#1C1C1E] flex items-center justify-center font-bold text-neutral-800 dark:text-white hover:bg-neutral-200 dark:hover:bg-neutral-800 transition-colors shadow-2xs active:scale-95"
+                      >
+                        -
+                      </button>
+                      <input
+                        type="number"
+                        min={1}
+                        max={Math.floor(availableStock / item.unitMultiplier)}
+                        value={item.quantity}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value, 10);
+                          if (Number.isNaN(val) || val <= 0) return;
+                          if (val * item.unitMultiplier > availableStock) {
+                            showAppleToast({
+                              type: "warning",
+                              title: "Batas Stok Fisik",
+                              message: `Maksimal stok: ${availableStock} ${formatUnitName(item.product.baseUnit)}.`,
+                            });
+                            updateQuantity(
+                              item.cartItemId,
+                              Math.max(
+                                1,
+                                Math.floor(availableStock / item.unitMultiplier)
+                              )
+                            );
+                            return;
+                          }
+                          updateQuantity(item.cartItemId, val);
+                        }}
+                        className="w-10 text-center bg-transparent font-bold text-neutral-900 dark:text-white font-mono text-[13px] tabular-nums focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleIncrement}
+                        className="h-7 w-7 rounded-md bg-white dark:bg-[#1C1C1E] flex items-center justify-center font-bold text-neutral-800 dark:text-white hover:bg-neutral-200 dark:hover:bg-neutral-800 transition-colors shadow-2xs active:scale-95"
+                      >
+                        +
+                      </button>
+                      <span className="text-[11px] font-semibold text-neutral-600 dark:text-neutral-300 px-1.5 whitespace-nowrap">
+                        {formatUnitName(item.selectedUnit)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Line Item Subtotal */}
+                  <div className="text-right">
+                    <span className="text-[10.5px] text-neutral-400 font-medium block">
+                      Subtotal
+                    </span>
+                    <span className="font-bold text-[14.5px] text-neutral-900 dark:text-white font-mono tabular-nums leading-tight block">
+                      {formatRupiah(item.subtotal)}
                     </span>
                   </div>
-                </td>
-
-                {/* Price */}
-                <td className="px-3 py-2 text-right font-mono text-slate-700 dark:text-slate-300 font-medium tabular-nums">
-                  {formatRupiah(item.unitPrice)}
-                </td>
-
-                {/* Quantity & Unit */}
-                <td className="px-3 py-2 text-center">
-                  <div className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl">
-                    <button
-                      type="button"
-                      onClick={() => updateQuantity(item.cartItemId, item.quantity - 1)}
-                      className="h-6 w-6 rounded-lg bg-white dark:bg-slate-700 flex items-center justify-center font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-200 transition-colors shadow-sm"
-                    >
-                      -
-                    </button>
-                    <span className="font-bold text-slate-900 dark:text-white font-mono px-1.5 min-w-6 text-center text-[12px] tabular-nums">
-                      {item.quantity}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => updateQuantity(item.cartItemId, item.quantity + 1)}
-                      className="h-6 w-6 rounded-lg bg-white dark:bg-slate-700 flex items-center justify-center font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-200 transition-colors shadow-sm"
-                    >
-                      +
-                    </button>
-                    <span className="text-[10px] font-bold text-slate-500 uppercase px-1.5 whitespace-nowrap">
-                      {item.selectedUnit}
-                    </span>
-                  </div>
-                </td>
-
-                {/* Subtotal */}
-                <td className="px-4 py-2 text-right font-bold text-slate-900 dark:text-white font-mono">
-                  {formatRupiah(item.subtotal)}
-                </td>
-
-                {/* Remove */}
-                <td className="px-3 py-2 text-center">
-                  <button
-                    onClick={() => removeFromCart(item.cartItemId)}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
-                    title="Hapus dari keranjang"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </td>
-              </tr>
+                </div>
+              </div>
             );
           })}
-        </tbody>
-      </table>
+        </div>
+      ) : (
+        /* =========================================================================
+            VIEW 2: COMPACT ADAPTIVE TABLE (Carefully Proportioned, Zero Blowout)
+        ========================================================================= */
+        <div className="w-full max-w-full min-w-0 overflow-x-auto rounded-xl border border-neutral-200/80 dark:border-white/[0.08] bg-white dark:bg-[#141416]">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr className="border-b border-neutral-200/80 dark:border-white/[0.08] bg-neutral-50/80 dark:bg-white/[0.03] text-neutral-500 font-semibold text-[10.5px] uppercase tracking-wider whitespace-nowrap">
+                <th className="px-2 py-2 w-7 text-center">No</th>
+                <th className="px-2.5 py-2">Obat & Aturan Pakai</th>
+                <th className="px-2 py-2">Lokasi & Stok</th>
+                <th className="px-2 py-2 text-right">Harga</th>
+                <th className="px-2 py-2 text-center">Jumlah</th>
+                <th className="px-2.5 py-2 text-right">Subtotal</th>
+                <th className="px-1.5 py-2 text-center w-7"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-neutral-100 dark:divide-white/[0.06]">
+              {cart.map((item, idx) => {
+                const liveProd =
+                  products.find((p) => p.id === item.product.id) || item.product;
+                const liveBatch =
+                  liveProd.batches.find((b) => b.id === item.selectedBatch.id) ||
+                  item.selectedBatch;
+                const availableStock = liveBatch.currentStock;
+                const daysLeft = getDaysUntilExpiry(liveBatch.expiryDate);
+                const expiryStatus = getExpiryStatus(daysLeft);
+
+                const handleIncrement = () => {
+                  const nextQty = item.quantity + 1;
+                  if (nextQty * item.unitMultiplier > availableStock) {
+                    showAppleToast({
+                      type: "warning",
+                      title: "Batas Stok Fisik",
+                      message: `Sisa stok ${item.product.name} (${liveBatch.locationRack}) tersedia ${availableStock} ${formatUnitName(item.product.baseUnit)}.`,
+                    });
+                    return;
+                  }
+                  updateQuantity(item.cartItemId, nextQty);
+                };
+
+                return (
+                  <tr
+                    key={item.cartItemId}
+                    className="hover:bg-neutral-50/60 dark:hover:bg-white/[0.02] transition-colors align-middle"
+                  >
+                    <td className="px-2 py-2 text-center font-mono text-neutral-400 font-medium">
+                      {idx + 1}
+                    </td>
+
+                    <td className="px-2.5 py-2 min-w-[130px]">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="font-semibold text-[12.5px] text-neutral-900 dark:text-white leading-tight">
+                          {item.product.name}
+                        </span>
+                        <input
+                          type="text"
+                          list={`signa-list-${item.cartItemId}`}
+                          value={item.signaUsage || ""}
+                          onChange={(e) =>
+                            updateItemSigna(item.cartItemId, e.target.value)
+                          }
+                          placeholder="Aturan pakai..."
+                          className="w-full px-1.5 py-0.5 rounded border border-neutral-200 dark:border-white/10 bg-neutral-50 dark:bg-white/[0.04] text-[10.5px] text-neutral-700 dark:text-neutral-200 focus:outline-none focus:border-[#00767E]"
+                        />
+                      </div>
+                    </td>
+
+                    <td className="px-2 py-2 text-[10.5px] font-mono whitespace-nowrap">
+                      <span className="font-semibold text-neutral-800 dark:text-neutral-200 block">
+                        {liveBatch.locationRack}
+                      </span>
+                      <span className="text-emerald-700 dark:text-emerald-400 block font-medium">
+                        Stok: {availableStock}
+                      </span>
+                    </td>
+
+                    <td className="px-2 py-2 text-right font-mono text-[11.5px] text-neutral-700 dark:text-neutral-300 tabular-nums whitespace-nowrap">
+                      {formatRupiah(item.unitPrice)}
+                    </td>
+
+                    <td className="px-2 py-2 text-center whitespace-nowrap">
+                      <div className="inline-flex items-center gap-0.5 bg-neutral-100 dark:bg-white/[0.06] p-0.5 rounded border border-neutral-200/80 dark:border-white/10">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateQuantity(item.cartItemId, item.quantity - 1)
+                          }
+                          className="h-5 w-5 rounded bg-white dark:bg-[#1C1C1E] flex items-center justify-center font-semibold text-neutral-800 dark:text-white text-[11px]"
+                        >
+                          -
+                        </button>
+                        <span className="w-6 text-center font-bold text-neutral-900 dark:text-white font-mono text-[11.5px] tabular-nums">
+                          {item.quantity}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handleIncrement}
+                          className="h-5 w-5 rounded bg-white dark:bg-[#1C1C1E] flex items-center justify-center font-semibold text-neutral-800 dark:text-white text-[11px]"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </td>
+
+                    <td className="px-2.5 py-2 text-right font-semibold text-[12px] text-neutral-900 dark:text-white font-mono tabular-nums whitespace-nowrap">
+                      {formatRupiah(item.subtotal)}
+                    </td>
+
+                    <td className="px-1.5 py-2 text-center">
+                      <button
+                        type="button"
+                        onClick={() => removeFromCart(item.cartItemId)}
+                        className="p-1 rounded text-neutral-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useSwipeGesture } from "@/hooks/useSwipeGesture";
 import {
   Users,
@@ -51,7 +51,7 @@ import { UserRole } from "@/lib/types";
 import { UserModal } from "@/components/users/UserModal";
 import { OFFICIAL_SEED_CREDENTIALS } from "@/lib/auth/auth-service";
 
-export default function UserManagementPage() {
+function UserManagementPageContent() {
   const { currentUser } = useApotekStore();
 
   const [staffUsers, setStaffUsers] = useState<StaffUser[]>([]);
@@ -61,6 +61,26 @@ export default function UserManagementPage() {
     "STAFF_LIST" | "PERMISSIONS_MATRIX" | "AUDIT_LOGS" | "CREDENTIALS_CARD"
   >("STAFF_LIST");
   const [copiedEmail, setCopiedEmail] = useState<string | null>(null);
+
+  // Modal State
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<StaffUser | null>(null);
+
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab === "staf") setActiveTab("STAFF_LIST");
+    else if (tab === "matriks") setActiveTab("PERMISSIONS_MATRIX");
+    else if (tab === "pin") setActiveTab("CREDENTIALS_CARD");
+    else if (tab === "audit") setActiveTab("AUDIT_LOGS");
+
+    const action = searchParams.get("action");
+    if (action === "new") {
+      setEditingUser(null);
+      setIsModalOpen(true);
+    }
+  }, [searchParams]);
 
   const router = useRouter();
   const USER_TABS = ["STAFF_LIST", "CREDENTIALS_CARD", "PERMISSIONS_MATRIX", "AUDIT_LOGS"] as const;
@@ -100,10 +120,6 @@ export default function UserManagementPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("ALL");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
-
-  // Modal State
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<StaffUser | null>(null);
 
   // Load staff and audit logs
   const loadData = async () => {
@@ -192,35 +208,29 @@ export default function UserManagementPage() {
   const getRoleBadge = (role: UserRole) => {
     switch (role) {
       case "SUPER_ADMIN":
-        return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-100 dark:bg-purple-950/80 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
-            <Shield className="w-3 h-3 text-purple-600" />
-            Super Admin
-          </span>
-        );
       case "OWNER":
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-            <TrendingUp className="w-3 h-3 text-amber-600" />
-            Owner (PSA)
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 whitespace-nowrap shrink-0">
+            <TrendingUp className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+            <span>Lv.1 — Pemilik Apotek</span>
           </span>
         );
       case "KARYAWAN_APOTEKER":
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-teal-100 dark:bg-teal-950/80 text-teal-800 dark:text-teal-300 border border-teal-200 dark:border-teal-800">
-            <FileBadge className="w-3 h-3 text-teal-600" />
-            Apoteker (APJ)
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-teal-100 dark:bg-teal-950/80 text-teal-800 dark:text-teal-300 border border-teal-200 dark:border-teal-800 whitespace-nowrap shrink-0">
+            <FileBadge className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+            <span>Lv.2 — Petugas Gudang</span>
           </span>
         );
       case "KARYAWAN_KASIR":
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-            <Terminal className="w-3 h-3 text-emerald-600" />
-            Kasir Shift
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 whitespace-nowrap shrink-0">
+            <Terminal className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+            <span>Lv.3 — Kasir POS</span>
           </span>
         );
       default:
-        return <span>{role}</span>;
+        return <span className="whitespace-nowrap">{role}</span>;
     }
   };
 
@@ -228,68 +238,65 @@ export default function UserManagementPage() {
     switch (status) {
       case "ACTIVE":
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            Aktif
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 whitespace-nowrap shrink-0">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+            <span>Aktif</span>
           </span>
         );
       case "INACTIVE":
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400">
-            <span className="w-1.5 h-1.5 rounded-full bg-neutral-400" />
-            Nonaktif
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 whitespace-nowrap shrink-0">
+            <span className="w-1.5 h-1.5 rounded-full bg-neutral-400 shrink-0" />
+            <span>Nonaktif</span>
           </span>
         );
       case "SUSPENDED":
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300">
-            <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-            Terkunci
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 whitespace-nowrap shrink-0">
+            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+            <span>Terkunci</span>
           </span>
         );
     }
   };
 
+  const formatAuditEventType = (eventType: string) => {
+    switch (eventType) {
+      case "USER_CREATED":
+        return "Akun Dibuat";
+      case "USER_UPDATED":
+        return "Akun Diperbarui";
+      case "USER_STATUS_CHANGED":
+        return "Status Diubah";
+      case "SUPERVISOR_PIN_RESET":
+        return "Reset PIN Otorisasi";
+      default:
+        return eventType;
+    }
+  };
+
   return (
-    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-[#F5F5F7] dark:bg-[#000000] text-[#1C1C1E] dark:text-[#F5F5F7] flex flex-col">
+    <div className="min-h-[calc(100vh-50px)] w-full max-w-full overflow-x-hidden bg-[#F5F6F8] dark:bg-[#0E0F12] text-[#1C1C1E] dark:text-[#F5F5F7] flex flex-col lg:rounded-br-[10px] border-x border-b border-neutral-300/80 dark:border-white/[0.08]">
       <Navbar />
 
       {/* Page Header */}
-      <div className="w-full max-w-full bg-white dark:bg-[#1C1C1E] border-b border-black/[0.06] dark:border-white/[0.08] px-4 sm:px-6 lg:px-8 py-5">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="w-full max-w-full bg-white dark:bg-[#141416] border-b border-neutral-200/80 dark:border-white/[0.08] px-4 sm:px-6 lg:px-8 py-4">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div>
-            <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
-              <span className="p-1.5 sm:p-2 rounded-[12px] bg-[#008B94]/10 text-[#008B94] shrink-0">
-                <Users className="w-5 h-5 sm:w-6 sm:h-6" />
-              </span>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <h1 className="text-[17px] sm:text-[22px] font-bold tracking-tight text-[#1C1C1E] dark:text-white truncate">
-                    <span className="sm:hidden">Kelola Staf</span>
-                    <span className="hidden sm:inline">Manajemen Akun & Otoritas Pengguna</span>
-                  </h1>
-                  <span className="hidden sm:inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#008B94]/15 text-[#008B94] shrink-0">
-                    RBAC Enterprise
-                  </span>
-                </div>
-                <p className="hidden sm:block text-[12px] text-[#8E8E93] mt-0.5">
-                  Autentikasi Firebase, pembagian peran staf apotek, verifikasi lisensi SIPA, dan otorisasi supervisor.
-                </p>
-              </div>
-            </div>
+            <h1 className="text-[18px] sm:text-[20px] font-bold tracking-tight text-neutral-900 dark:text-white">
+              Pengguna & Hak Akses (RBAC)
+            </h1>
+            <p className="text-[12px] text-neutral-500 mt-0.5">
+              Kelola akun staf dan pembagian hak akses Level 1 (Pemilik), Level 2 (Gudang), serta Level 3 (Kasir)
+            </p>
           </div>
 
-          {/* Top Actions: Live Indicator & Add User Button */}
+          {/* Top Actions */}
           <div className="flex items-center gap-2 shrink-0">
-            <div className="px-2.5 py-1.5 rounded-[10px] bg-neutral-100 dark:bg-neutral-800 text-[11px] font-semibold text-[#8E8E93] flex items-center gap-1.5 shrink-0 whitespace-nowrap">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-              <span>{isLiveFirebaseConfigured ? "Cloud Live" : "Offline Cache"}</span>
-            </div>
-
             <button
               type="button"
               onClick={handleCreateNewUser}
-              className="px-3.5 py-2 min-h-[40px] rounded-[12px] bg-[#008B94] hover:bg-[#00767E] active:scale-[0.98] text-white text-[12px] font-semibold flex items-center gap-1.5 shadow-sm transition-all shrink-0 whitespace-nowrap"
+              className="px-3.5 py-2 rounded-lg bg-[#00767E] hover:bg-[#006067] text-white text-[12px] font-semibold flex items-center gap-1.5 transition-colors shrink-0"
             >
               <UserPlus className="w-4 h-4 shrink-0" />
               <span>Tambah Staf</span>
@@ -298,11 +305,11 @@ export default function UserManagementPage() {
         </div>
 
         {/* Tab Navigation Segmented Bar */}
-        <div className="max-w-7xl mx-auto mt-4 flex items-center gap-1.5 border-t border-neutral-100 dark:border-neutral-800 pt-3 overflow-x-auto no-scrollbar touch-pan-x">
+        <div className="max-w-7xl mx-auto mt-3.5 flex items-center gap-1.5 border-t border-neutral-100 dark:border-white/[0.06] pt-3 overflow-x-auto no-scrollbar">
           {[
             { id: "STAFF_LIST", label: "Daftar Staf", count: staffUsers.length, icon: Users },
-            { id: "CREDENTIALS_CARD", label: "Kredensial", icon: KeyRound },
-            { id: "PERMISSIONS_MATRIX", label: "Matriks Izin", icon: ShieldCheck },
+            { id: "PERMISSIONS_MATRIX", label: "Matriks Hak Akses (RBAC)", icon: ShieldCheck },
+            { id: "CREDENTIALS_CARD", label: "Kredensial Login", icon: KeyRound },
             { id: "AUDIT_LOGS", label: "Log Audit", count: auditLogs.length, icon: Activity },
           ].map((tab) => {
             const Icon = tab.icon;
@@ -315,20 +322,20 @@ export default function UserManagementPage() {
                   soundEngine.playKeyTap();
                   setActiveTab(tab.id as any);
                 }}
-                className={`px-3 sm:px-3.5 py-1.5 sm:py-2 min-h-[36px] sm:min-h-[38px] rounded-[10px] text-[11px] sm:text-[12px] font-semibold flex items-center gap-1.5 sm:gap-2 transition-all whitespace-nowrap shrink-0 ${
+                className={`px-3 py-1.5 rounded-lg text-[12px] font-medium flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 ${
                   isActive
-                    ? "bg-[#1C1C1E] text-white dark:bg-white dark:text-[#1C1C1E] shadow-sm"
-                    : "text-[#8E8E93] hover:text-[#1C1C1E] dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                    ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 font-semibold"
+                    : "text-neutral-500 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/[0.06]"
                 }`}
               >
                 <Icon className="w-3.5 h-3.5 shrink-0" />
                 <span>{tab.label}</span>
                 {tab.count !== undefined && (
                   <span
-                    className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                    className={`px-1.5 py-0.2 rounded text-[10px] font-mono font-semibold ${
                       isActive
                         ? "bg-white/20 text-white dark:bg-black/20 dark:text-black"
-                        : "bg-neutral-200 dark:bg-neutral-700 text-[#636366] dark:text-[#AEAEB2]"
+                        : "bg-neutral-200/70 dark:bg-white/10 text-neutral-600 dark:text-neutral-400"
                     }`}
                   >
                     {tab.count}
@@ -338,85 +345,78 @@ export default function UserManagementPage() {
             );
           })}
         </div>
-
-        {/* Mobile Swipe Hint Indicator */}
-        <div className="sm:hidden text-center text-[10px] text-neutral-400 dark:text-neutral-500 pt-1.5 flex items-center justify-center gap-1 select-none">
-          <span>&larr;</span>
-          <span>Geser layar ke kiri / kanan untuk ganti tab</span>
-          <span>&rarr;</span>
-        </div>
       </div>
 
-      {/* Main Content Viewport with Swipe Gesture Support */}
+      {/* Main Content Viewport */}
       <main
         {...swipeHandlers}
-        className="flex-1 w-full max-w-full min-w-0 p-3 sm:p-6 lg:p-8 touch-pan-y"
+        className="flex-1 w-full max-w-full min-w-0 p-4 sm:p-6 lg:p-8 touch-pan-y"
       >
-        <div className="max-w-7xl mx-auto space-y-6">
+        <div className="max-w-7xl mx-auto space-y-5">
           {/* TAB 1: STAFF LIST */}
           {activeTab === "STAFF_LIST" && (
-            <div className="space-y-6 animate-in fade-in duration-150">
+            <div className="space-y-4 animate-in fade-in duration-150">
               {/* 4 Summary Cards */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
-                <div className="p-4 rounded-[18px] bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/[0.08] shadow-sm">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-[#8E8E93] block mb-1">
-                    Total Staff
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-4 rounded-xl bg-white dark:bg-[#141416] border border-neutral-200/80 dark:border-white/[0.08]">
+                  <span className="text-[11px] font-medium text-neutral-500 block">
+                    Total Staf
                   </span>
-                  <div className="text-[22px] font-bold text-[#1C1C1E] dark:text-white tabular-nums">
+                  <div className="text-[22px] font-bold font-mono text-neutral-900 dark:text-white tabular-nums mt-1">
                     {staffUsers.length}
                   </div>
-                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-1 block">
-                    {staffUsers.filter((u) => u.status === "ACTIVE").length} Akun Aktif
+                  <span className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-0.5 block">
+                    {staffUsers.filter((u) => u.status === "ACTIVE").length} akun aktif
                   </span>
                 </div>
 
-                <div className="p-4 rounded-[18px] bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/[0.08] shadow-sm">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-purple-600 dark:text-purple-400 block mb-1">
-                    Super Admin & Owner
+                <div className="p-4 rounded-xl bg-white dark:bg-[#141416] border border-neutral-200/80 dark:border-white/[0.08]">
+                  <span className="text-[11px] font-medium text-neutral-500 block">
+                    Level 1 — Pemilik Apotek
                   </span>
-                  <div className="text-[22px] font-bold text-purple-600 dark:text-purple-400 tabular-nums">
+                  <div className="text-[22px] font-bold font-mono text-neutral-900 dark:text-white tabular-nums mt-1">
                     {staffUsers.filter((u) => u.role === "SUPER_ADMIN" || u.role === "OWNER").length}
                   </div>
-                  <span className="text-[10px] text-[#8E8E93] mt-1 block">
-                    Akses Eksekutif & Finansial
+                  <span className="text-[11px] text-neutral-400 mt-0.5 block">
+                    Akses penuh, omzet & PO
                   </span>
                 </div>
 
-                <div className="p-4 rounded-[18px] bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/[0.08] shadow-sm">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-teal-600 dark:text-teal-400 block mb-1">
-                    Apoteker (APJ)
+                <div className="p-4 rounded-xl bg-white dark:bg-[#141416] border border-neutral-200/80 dark:border-white/[0.08]">
+                  <span className="text-[11px] font-medium text-neutral-500 block">
+                    Level 2 — Petugas Gudang
                   </span>
-                  <div className="text-[22px] font-bold text-teal-600 dark:text-teal-400 tabular-nums">
+                  <div className="text-[22px] font-bold font-mono text-neutral-900 dark:text-white tabular-nums mt-1">
                     {staffUsers.filter((u) => u.role === "KARYAWAN_APOTEKER").length}
                   </div>
-                  <span className="text-[10px] text-[#8E8E93] mt-1 block">
-                    Ber-SIPA & Penanggung Jawab
+                  <span className="text-[11px] text-neutral-400 mt-0.5 block">
+                    Stok, barang masuk & opname
                   </span>
                 </div>
 
-                <div className="p-4 rounded-[18px] bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/[0.08] shadow-sm">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block mb-1">
-                    Kasir Shift POS
+                <div className="p-4 rounded-xl bg-white dark:bg-[#141416] border border-neutral-200/80 dark:border-white/[0.08]">
+                  <span className="text-[11px] font-medium text-neutral-500 block">
+                    Level 3 — Kasir
                   </span>
-                  <div className="text-[22px] font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
+                  <div className="text-[22px] font-bold font-mono text-neutral-900 dark:text-white tabular-nums mt-1">
                     {staffUsers.filter((u) => u.role === "KARYAWAN_KASIR").length}
                   </div>
-                  <span className="text-[10px] text-[#8E8E93] mt-1 block">
-                    HPP & Margin Terproteksi
+                  <span className="text-[11px] text-neutral-400 mt-0.5 block">
+                    Transaksi kasir & cek stok
                   </span>
                 </div>
               </div>
 
               {/* Filters & Search Toolbar */}
-              <div className="p-4 rounded-[18px] bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/[0.08] shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              <div className="p-3.5 rounded-xl bg-white dark:bg-[#141416] border border-neutral-200/80 dark:border-white/[0.08] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
                 <div className="relative flex-1 max-w-md">
-                  <Search className="w-4 h-4 text-[#8E8E93] absolute left-3 top-2.5" />
+                  <Search className="w-4 h-4 text-neutral-400 absolute left-3 top-2.5" />
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Cari nama, email, SIPA, atau terminal..."
-                    className="w-full pl-9 pr-3 py-2 text-[12px] rounded-[10px] bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-black/[0.04] dark:border-white/[0.04] outline-none focus:border-[#008B94]"
+                    className="w-full pl-9 pr-3 py-1.5 text-[12.5px] rounded-lg bg-neutral-50 dark:bg-[#1C1C1E] border border-neutral-200 dark:border-white/10 outline-none focus:border-[#00767E]"
                   />
                 </div>
 
@@ -424,19 +424,18 @@ export default function UserManagementPage() {
                   <select
                     value={roleFilter}
                     onChange={(e) => setRoleFilter(e.target.value)}
-                    className="text-[12px] px-3 py-2 rounded-[10px] bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-black/[0.04] dark:border-white/[0.04] font-medium outline-none text-[#1C1C1E] dark:text-white"
+                    className="text-[12px] px-3 py-1.5 rounded-lg bg-neutral-50 dark:bg-[#1C1C1E] border border-neutral-200 dark:border-white/10 font-medium outline-none text-neutral-800 dark:text-white"
                   >
-                    <option value="ALL">Semua Peran</option>
-                    <option value="SUPER_ADMIN">Super Admin</option>
-                    <option value="OWNER">Owner (PSA)</option>
-                    <option value="KARYAWAN_APOTEKER">Apoteker (APJ)</option>
-                    <option value="KARYAWAN_KASIR">Kasir POS</option>
+                    <option value="ALL">Semua Level</option>
+                    <option value="OWNER">Level 1 — Pemilik Apotek</option>
+                    <option value="KARYAWAN_APOTEKER">Level 2 — Petugas Gudang</option>
+                    <option value="KARYAWAN_KASIR">Level 3 — Kasir</option>
                   </select>
 
                   <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    className="text-[12px] px-3 py-2 rounded-[10px] bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-black/[0.04] dark:border-white/[0.04] font-medium outline-none text-[#1C1C1E] dark:text-white"
+                    className="text-[12px] px-3 py-1.5 rounded-lg bg-neutral-50 dark:bg-[#1C1C1E] border border-neutral-200 dark:border-white/10 font-medium outline-none text-neutral-800 dark:text-white"
                   >
                     <option value="ALL">Semua Status</option>
                     <option value="ACTIVE">Aktif</option>
@@ -447,25 +446,25 @@ export default function UserManagementPage() {
               </div>
 
               {/* Staff Data Table */}
-              <div className="w-full max-w-full min-w-0 bg-white dark:bg-[#1C1C1E] rounded-[20px] border border-black/[0.06] dark:border-white/[0.08] shadow-sm overflow-hidden">
+              <div className="w-full max-w-full min-w-0 bg-white dark:bg-[#141416] rounded-xl border border-neutral-200/80 dark:border-white/[0.08] overflow-hidden">
                 <div className="w-full max-w-full min-w-0 overflow-x-auto">
-                  <table className="w-full min-w-[850px] text-left text-[12px]">
+                  <table className="w-full min-w-[820px] text-left text-[12px]">
                     <thead>
-                      <tr className="border-b border-neutral-100 dark:border-neutral-800 text-[#8E8E93] text-[11px] uppercase tracking-wider font-semibold bg-[#F5F5F7]/60 dark:bg-[#2C2C2E]/40">
-                        <th className="py-3 px-4">Nama & Email Staff</th>
-                        <th className="py-3 px-4">Peran (Role)</th>
-                        <th className="py-3 px-4">Status</th>
-                        <th className="py-3 px-4">Legalitas / Terminal</th>
-                        <th className="py-3 px-4 text-center">PIN Supervisor</th>
-                        <th className="py-3 px-4">Login Terakhir</th>
-                        <th className="py-3 px-4 text-right">Aksi</th>
+                      <tr className="border-b border-neutral-200/80 dark:border-white/[0.08] text-neutral-500 text-[11px] uppercase tracking-wider font-semibold bg-neutral-50/80 dark:bg-white/[0.03]">
+                        <th className="py-3 px-4 whitespace-nowrap">Nama & Username</th>
+                        <th className="py-3 px-4 whitespace-nowrap">Level Hak Akses</th>
+                        <th className="py-3 px-4 whitespace-nowrap">Status</th>
+                        <th className="py-3 px-4 whitespace-nowrap">Legalitas / Terminal</th>
+                        <th className="py-3 px-4 text-center whitespace-nowrap">PIN Otorisasi</th>
+                        <th className="py-3 px-4 whitespace-nowrap">Login Terakhir</th>
+                        <th className="py-3 px-4 text-right whitespace-nowrap">Aksi</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800/60">
+                    <tbody className="divide-y divide-neutral-100 dark:divide-white/[0.06]">
                       {filteredUsers.length === 0 ? (
                         <tr>
-                          <td colSpan={7} className="py-12 text-center text-[#8E8E93]">
-                            Tidak ada data staff yang cocok dengan pencarian.
+                          <td colSpan={7} className="py-10 text-center text-neutral-500">
+                            Tidak ada data staf yang cocok dengan pencarian.
                           </td>
                         </tr>
                       ) : (
@@ -474,88 +473,77 @@ export default function UserManagementPage() {
                           return (
                             <tr
                               key={user.uid}
-                              className="hover:bg-neutral-50 dark:hover:bg-neutral-900/40 transition-colors"
+                              className="hover:bg-neutral-50/60 dark:hover:bg-white/[0.02] transition-colors"
                             >
-                              {/* Name & Avatar */}
-                              <td className="py-3 px-4">
+                              <td className="py-3 px-4 min-w-[220px]">
                                 <div className="flex items-center gap-3">
-                                  <div className="w-8 h-8 rounded-full bg-teal-100 dark:bg-teal-950 text-[#008B94] font-bold text-[11px] flex items-center justify-center shrink-0">
+                                  <div className="w-8 h-8 rounded-lg bg-[#00767E]/10 text-[#00767E] dark:text-teal-300 font-bold text-[11px] flex items-center justify-center shrink-0">
                                     {user.avatar}
                                   </div>
                                   <div className="min-w-0">
                                     <div className="flex items-center gap-1.5">
-                                      <span className="font-bold text-[#1C1C1E] dark:text-white truncate">
+                                      <span className="font-semibold text-neutral-900 dark:text-white truncate">
                                         {user.displayName}
                                       </span>
-                                      {isPrimaryAdmin && (
-                                        <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-[#008B94]/15 text-[#008B94]">
-                                          ROOT
-                                        </span>
-                                      )}
                                     </div>
-                                    <div className="flex items-center gap-1.5 mt-0.5">
-                                      <span className="font-mono text-[10px] font-bold text-[#008B94] bg-teal-50 dark:bg-teal-950/60 px-1.5 py-0.5 rounded border border-teal-200 dark:border-teal-900">
+                                    <div className="flex items-center gap-1.5 mt-0.5 whitespace-nowrap">
+                                      <span className="font-mono text-[10.5px] font-semibold text-[#00767E] dark:text-teal-400 shrink-0">
                                         @{user.username || user.email.split("@")[0]}
                                       </span>
-                                      <span className="text-[11px] text-[#8E8E93] truncate">
-                                        {user.email}
+                                      <span className="text-[11px] text-neutral-400 truncate">
+                                        &middot; {user.email}
                                       </span>
                                     </div>
                                   </div>
                                 </div>
                               </td>
 
-                              {/* Role */}
-                              <td className="py-3 px-4">{getRoleBadge(user.role)}</td>
+                              <td className="py-3 px-4 whitespace-nowrap">{getRoleBadge(user.role)}</td>
 
-                              {/* Status */}
-                              <td className="py-3 px-4">
+                              <td className="py-3 px-4 whitespace-nowrap">
                                 <select
                                   value={user.status}
                                   disabled={isPrimaryAdmin}
                                   onChange={(e) => handleToggleStatus(user, e.target.value as UserStatus)}
-                                  className="text-[11px] font-semibold px-2 py-1 rounded-[8px] bg-neutral-100 dark:bg-neutral-800 border-none outline-none cursor-pointer"
+                                  className="text-[11.5px] font-medium px-2.5 py-1 rounded-lg bg-neutral-100 dark:bg-white/[0.06] border border-neutral-200/80 dark:border-white/10 outline-none cursor-pointer"
                                 >
-                                  <option value="ACTIVE">✅ Aktif</option>
-                                  <option value="INACTIVE">⏸️ Nonaktif</option>
-                                  <option value="SUSPENDED">🔒 Terkunci</option>
+                                  <option value="ACTIVE">Aktif</option>
+                                  <option value="INACTIVE">Nonaktif</option>
+                                  <option value="SUSPENDED">Terkunci</option>
                                 </select>
                               </td>
 
-                              {/* Licensure / Hardware */}
-                              <td className="py-3 px-4 text-[11px]">
+                              <td className="py-3 px-4 text-[11px] whitespace-nowrap">
                                 {user.role === "KARYAWAN_APOTEKER" && user.pharmacistDetails ? (
                                   <div>
-                                    <span className="font-mono text-[#1C1C1E] dark:text-white block font-semibold">
+                                    <span className="font-mono text-neutral-900 dark:text-white block font-medium">
                                       SIPA: {user.pharmacistDetails.sipaNumber}
                                     </span>
-                                    <span className="text-[#8E8E93] text-[10px]">
-                                      Exp: {user.pharmacistDetails.sipaExpiryDate}
+                                    <span className="text-neutral-400 text-[10px]">
+                                      Berlaku s/d {user.pharmacistDetails.sipaExpiryDate}
                                     </span>
                                   </div>
                                 ) : user.role === "KARYAWAN_KASIR" && user.cashierDetails ? (
-                                  <span className="font-mono font-semibold px-2 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800 text-[#1C1C1E] dark:text-white">
+                                  <span className="font-mono font-medium px-2 py-0.5 rounded bg-neutral-100 dark:bg-white/[0.06] text-neutral-800 dark:text-white">
                                     {user.cashierDetails.terminalId}
                                   </span>
                                 ) : (
-                                  <span className="text-[#8E8E93] italic">Semua Modul</span>
+                                  <span className="text-neutral-400">Semua Modul</span>
                                 )}
                               </td>
 
-                              {/* Supervisor PIN */}
-                              <td className="py-3 px-4 text-center">
+                              <td className="py-3 px-4 text-center whitespace-nowrap">
                                 {user.supervisorPin ? (
-                                  <span className="inline-flex items-center gap-1 text-[11px] font-mono text-emerald-600 font-bold">
-                                    <CheckCircle2 className="w-3.5 h-3.5" />
-                                    <span>Aktif (6-digit)</span>
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-mono text-emerald-600 font-semibold">
+                                    <Check className="w-3.5 h-3.5" />
+                                    <span>Aktif</span>
                                   </span>
                                 ) : (
-                                  <span className="text-[11px] text-[#8E8E93]">-</span>
+                                  <span className="text-[11px] text-neutral-400">-</span>
                                 )}
                               </td>
 
-                              {/* Last Login */}
-                              <td className="py-3 px-4 text-[11px] text-[#8E8E93]">
+                              <td className="py-3 px-4 text-[11px] text-neutral-500 whitespace-nowrap">
                                 {user.lastLoginAt ? (
                                   new Date(user.lastLoginAt).toLocaleDateString("id-ID", {
                                     day: "numeric",
@@ -564,19 +552,18 @@ export default function UserManagementPage() {
                                     minute: "2-digit",
                                   })
                                 ) : (
-                                  <span className="italic">Belum pernah</span>
+                                  <span>Belum pernah</span>
                                 )}
                               </td>
 
-                              {/* Actions */}
-                              <td className="py-3 px-4 text-right">
+                              <td className="py-3 px-4 text-right whitespace-nowrap">
                                 <button
                                   type="button"
                                   onClick={() => handleEditUser(user)}
-                                  className="px-2.5 py-1 rounded-[8px] bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-[#1C1C1E] dark:text-white text-[11px] font-semibold inline-flex items-center gap-1 transition-colors"
+                                  className="px-2.5 py-1 rounded-lg bg-neutral-100 dark:bg-white/[0.06] hover:bg-neutral-200 text-neutral-800 dark:text-white text-[11px] font-medium inline-flex items-center gap-1 transition-colors whitespace-nowrap"
                                 >
                                   <Edit2 className="w-3 h-3" />
-                                  <span>Edit</span>
+                                  <span>Ubah</span>
                                 </button>
                               </td>
                             </tr>
@@ -592,119 +579,140 @@ export default function UserManagementPage() {
 
           {/* TAB 2: PERMISSIONS MATRIX (RBAC) */}
           {activeTab === "PERMISSIONS_MATRIX" && (
-            <div className="space-y-6 animate-in fade-in duration-150">
-              <div className="bg-white dark:bg-[#1C1C1E] p-6 rounded-[22px] border border-black/[0.06] dark:border-white/[0.08] shadow-sm">
-                <div className="flex items-center gap-2.5 mb-2">
-                  <span className="p-2 rounded-[10px] bg-teal-50 dark:bg-teal-950 text-[#008B94]">
-                    <ShieldCheck className="w-5 h-5" />
-                  </span>
-                  <div>
-                    <h3 className="text-[16px] font-bold text-[#1C1C1E] dark:text-white">
-                      Matriks Hak Akses & Pembagian Otoritas (RBAC Matrix)
-                    </h3>
-                    <p className="text-[12px] text-[#8E8E93]">
-                      Standar keamanan Farmasi Rumah Sakit & Apotek Modern (Separation of Duties).
-                    </p>
-                  </div>
-                </div>
+            <div className="bg-white dark:bg-[#141416] p-5 rounded-xl border border-neutral-200/80 dark:border-white/[0.08] animate-in fade-in duration-150">
+              <div className="mb-4 pb-3 border-b border-neutral-100 dark:border-white/[0.06]">
+                <h3 className="text-[15px] font-bold text-neutral-900 dark:text-white">
+                  Matriks Pembagian Hak Akses (Role-Based Access Control 3-Level)
+                </h3>
+                <p className="text-[12px] text-neutral-500 mt-0.5">
+                  Rincian wewenang operasional setiap peran pengguna
+                </p>
+              </div>
 
-                <div className="w-full max-w-full min-w-0 overflow-x-auto mt-4">
-                  <table className="w-full min-w-[700px] text-left text-[12px] border-collapse">
-                    <thead>
-                      <tr className="border-b border-neutral-200 dark:border-neutral-800 text-[#8E8E93] text-[11px] uppercase tracking-wider font-semibold">
-                        <th className="py-3 px-4">Modul & Tindakan Sistem</th>
-                        <th className="py-3 px-4 text-center">Super Admin</th>
-                        <th className="py-3 px-4 text-center">Owner (PSA)</th>
-                        <th className="py-3 px-4 text-center">Apoteker (APJ)</th>
-                        <th className="py-3 px-4 text-center">Kasir POS</th>
+              <div className="w-full max-w-full min-w-0 overflow-x-auto">
+                <table className="w-full min-w-[680px] text-left text-[12px] border-collapse">
+                  <thead>
+                    <tr className="border-b border-neutral-200/80 dark:border-white/[0.08] text-neutral-500 text-[11px] uppercase tracking-wider font-semibold">
+                      <th className="py-3 px-4 whitespace-nowrap">Modul & Wewenang Operasional</th>
+                      <th className="py-3 px-4 text-center text-neutral-900 dark:text-white whitespace-nowrap">
+                        Level 1 — Akses Penuh<br />
+                        <span className="text-[10px] font-normal text-neutral-500">(Pemilik Apotek)</span>
+                      </th>
+                      <th className="py-3 px-4 text-center text-neutral-900 dark:text-white whitespace-nowrap">
+                        Level 2 — Akses Menengah<br />
+                        <span className="text-[10px] font-normal text-neutral-500">(Petugas Gudang)</span>
+                      </th>
+                      <th className="py-3 px-4 text-center text-neutral-900 dark:text-white whitespace-nowrap">
+                        Level 3 — Akses Terbatas<br />
+                        <span className="text-[10px] font-normal text-neutral-500">(Kasir)</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-100 dark:divide-white/[0.06] text-[12px]">
+                    {[
+                      {
+                        module: "Pelayanan Transaksi Penjualan Kasir POS (Swamedikasi & Resep)",
+                        lv1: "Akses Penuh",
+                        lv2: "Akses Operasional",
+                        lv3: "Fokus Utama Kasir",
+                        lv3Allowed: true,
+                      },
+                      {
+                        module: "Pencarian Sisa Stok Obat, Lokasi Rak & Rekomendasi Pengganti",
+                        lv1: "Akses Penuh",
+                        lv2: "Akses Penuh",
+                        lv3: "Baca Saja",
+                        lv3Allowed: true,
+                      },
+                      {
+                        module: "Mengelola Data Stok Obat & Katalog Gudang",
+                        lv1: "Akses Penuh",
+                        lv2: "Hak Khusus Gudang",
+                        lv3: "Terkunci",
+                        lv3Allowed: false,
+                      },
+                      {
+                        module: "Mencatat Barang Masuk dari Supplier (Kamera Barcode / Manual)",
+                        lv1: "Akses Penuh",
+                        lv2: "Hak Khusus Gudang",
+                        lv3: "Terkunci",
+                        lv3Allowed: false,
+                      },
+                      {
+                        module: "Mengeksekusi Stock Opname (Penyesuaian Fisik vs Sistem)",
+                        lv1: "Akses Penuh",
+                        lv2: "Hak Khusus Gudang",
+                        lv3: "Terkunci",
+                        lv3Allowed: false,
+                      },
+                      {
+                        module: "Membuat Draf Purchase Order (PO) ke Supplier (PBF)",
+                        lv1: "Buat & Setujui PO",
+                        lv2: "Buat Draf PO",
+                        lv3: "Terkunci",
+                        lv3Allowed: false,
+                      },
+                      {
+                        module: "Menyetujui Purchase Order (Approve PO) ke Supplier",
+                        lv1: "Wewenang Pemilik",
+                        lv2: "Menunggu Persetujuan Lv.1",
+                        lv3: "Terkunci",
+                        lv3Allowed: false,
+                      },
+                      {
+                        module: "Memantau Grafik Omzet Harian/Bulanan & Laba Kotor",
+                        lv1: "Wewenang Pemilik",
+                        lv2: "Terkunci",
+                        lv3: "Terkunci",
+                        lv3Allowed: false,
+                      },
+                    ].map((row, idx) => (
+                      <tr key={idx} className="hover:bg-neutral-50/60 dark:hover:bg-white/[0.02]">
+                        <td className="py-3 px-4 font-medium text-neutral-900 dark:text-white">
+                          {row.module}
+                        </td>
+                        <td className="py-3 px-4 text-center whitespace-nowrap">
+                          <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400 font-semibold">
+                            <Check className="w-3.5 h-3.5" />
+                            <span>{row.lv1}</span>
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-center whitespace-nowrap">
+                          <span
+                            className={`inline-flex items-center gap-1 font-medium ${
+                              row.lv2 === "Terkunci"
+                                ? "text-neutral-400"
+                                : "text-neutral-800 dark:text-neutral-200"
+                            }`}
+                          >
+                            {row.lv2 === "Terkunci" ? (
+                              <Lock className="w-3 h-3" />
+                            ) : (
+                              <Check className="w-3.5 h-3.5 text-[#00767E]" />
+                            )}
+                            <span>{row.lv2}</span>
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-center whitespace-nowrap">
+                          <span
+                            className={`inline-flex items-center gap-1 font-medium ${
+                              row.lv3Allowed
+                                ? "text-emerald-700 dark:text-emerald-400 font-semibold"
+                                : "text-neutral-400"
+                            }`}
+                          >
+                            {row.lv3Allowed ? (
+                              <Check className="w-3.5 h-3.5" />
+                            ) : (
+                              <Lock className="w-3 h-3" />
+                            )}
+                            <span>{row.lv3}</span>
+                          </span>
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800/60 text-[12px]">
-                      {[
-                        {
-                          module: "Layanan Kasir & Checkout Penjualan POS",
-                          superAdmin: "✅ Penuh",
-                          owner: "✅ Penuh / Monitor",
-                          apoteker: "✅ Penuh",
-                          kasir: "✅ Operator Utama",
-                        },
-                        {
-                          module: "Buka / Tutup Shift Kasir (Blind Cash Count)",
-                          superAdmin: "✅ Penuh",
-                          owner: "✅ Penuh / Audit",
-                          apoteker: "⚠️ Lihat Shift",
-                          kasir: "✅ Shift Sendiri",
-                        },
-                        {
-                          module: "Otorisasi PIN Selisih Kasir & Void Struk",
-                          superAdmin: "✅ Otoritas Root",
-                          owner: "✅ Master PIN",
-                          apoteker: "✅ PIN Supervisor",
-                          kasir: "❌ Dilarang (Wajib Minta)",
-                        },
-                        {
-                          module: "Visibilitas HPP (Harga Pokok) & Margin Keuntungan",
-                          superAdmin: "✅ Terbuka",
-                          owner: "✅ Terbuka / Privacy",
-                          apoteker: "❌ Terproteksi Rahasia",
-                          kasir: "❌ Terproteksi Rahasia",
-                        },
-                        {
-                          module: "Executive Suite (Laba Kotor, EBITDA, Valuasi Stok)",
-                          superAdmin: "✅ Terbuka",
-                          owner: "✅ Hak Eksklusif",
-                          apoteker: "❌ Diblokir",
-                          kasir: "❌ Diblokir",
-                        },
-                        {
-                          module: "Peracikan Resep Dokter (Puyer / Kapsul / Dosis Anak)",
-                          superAdmin: "✅ Konfigurasi",
-                          owner: "⚠️ Monitor",
-                          apoteker: "✅ Wewenang Penuh",
-                          kasir: "❌ Dilarang (Non-Kefarmasian)",
-                        },
-                        {
-                          module: "Pelaporan Narkotika / Psikotropika (SIPNAP & BPOM)",
-                          superAdmin: "✅ Audit Teknis",
-                          owner: "⚠️ Audit Legal",
-                          apoteker: "✅ Penanggung Jawab SIPA",
-                          kasir: "❌ Dilarang",
-                        },
-                        {
-                          module: "Katalog Master Obat & Penyesuaian Harga Jual",
-                          superAdmin: "✅ Penuh",
-                          owner: "✅ Penuh (HPP & HJA)",
-                          apoteker: "⚠️ Katalog Saja",
-                          kasir: "❌ Baca Saja POS",
-                        },
-                        {
-                          module: "Manajemen Akun Staff & Lisensi SIPA (Halaman Ini)",
-                          superAdmin: "✅ Hak Penuh",
-                          owner: "✅ Hak Penuh",
-                          apoteker: "❌ Diblokir",
-                          kasir: "❌ Diblokir",
-                        },
-                        {
-                          module: "Inspeksi Audit Trail Sistem & Log Transaksi",
-                          superAdmin: "✅ Root Log",
-                          owner: "✅ Executive Log",
-                          apoteker: "⚠️ Log Departemen",
-                          kasir: "❌ Diblokir",
-                        },
-                      ].map((row, idx) => (
-                        <tr key={idx} className="hover:bg-neutral-50 dark:hover:bg-neutral-900/40">
-                          <td className="py-3 px-4 font-semibold text-[#1C1C1E] dark:text-white">
-                            {row.module}
-                          </td>
-                          <td className="py-3 px-4 text-center font-medium">{row.superAdmin}</td>
-                          <td className="py-3 px-4 text-center font-medium">{row.owner}</td>
-                          <td className="py-3 px-4 text-center font-medium">{row.apoteker}</td>
-                          <td className="py-3 px-4 text-center font-medium">{row.kasir}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}
@@ -728,8 +736,8 @@ export default function UserManagementPage() {
                     </div>
                   </div>
 
-                  <div className="px-3 py-1.5 rounded-[10px] bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-[11px] font-semibold flex items-center gap-1.5">
-                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                  <div className="px-3 py-1.5 rounded-[10px] bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-[11px] font-semibold flex items-center gap-1.5 whitespace-nowrap shrink-0">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
                     <span>Enkripsi SHA-256 Aktif</span>
                   </div>
                 </div>
@@ -752,11 +760,11 @@ export default function UserManagementPage() {
                             <h4 className="text-[15px] font-bold text-[#1C1C1E] dark:text-white">
                               {cred.fullName}
                             </h4>
-                            <div className="flex items-center gap-2 mt-1">
-                              <span className="px-2 py-0.5 rounded-md bg-teal-100 dark:bg-teal-950/80 text-[#008B94] border border-teal-200 dark:border-teal-900 font-mono font-bold text-[11px]">
+                            <div className="flex items-center gap-2 mt-1 whitespace-nowrap">
+                              <span className="px-2 py-0.5 rounded-md bg-teal-100 dark:bg-teal-950/80 text-[#008B94] border border-teal-200 dark:border-teal-900 font-mono font-bold text-[11px] shrink-0">
                                 Username: {cred.username || matchedUser?.username || "user"}
                               </span>
-                              <span className="text-[11px] font-mono text-[#8E8E93]">
+                              <span className="text-[11px] font-mono text-[#8E8E93] truncate">
                                 ({cred.email})
                               </span>
                             </div>
@@ -769,10 +777,10 @@ export default function UserManagementPage() {
                                 handleEditUser(matchedUser);
                               }
                             }}
-                            className="px-2.5 py-1 rounded-[8px] bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/[0.12] hover:bg-neutral-100 text-[11px] font-semibold text-[#1C1C1E] dark:text-white flex items-center gap-1 transition-all"
+                            className="px-2.5 py-1 rounded-[8px] bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/[0.12] hover:bg-neutral-100 text-[11px] font-semibold text-[#1C1C1E] dark:text-white flex items-center gap-1 transition-all whitespace-nowrap shrink-0"
                           >
                             <Edit2 className="w-3 h-3" />
-                            <span>Edit / Ganti Sandi</span>
+                            <span>Ubah Sandi</span>
                           </button>
                         </div>
 
@@ -834,7 +842,7 @@ export default function UserManagementPage() {
                       Log Audit Aktivitas Akun & Keamanan (Audit Trail)
                     </h3>
                     <p className="text-[12px] text-[#8E8E93]">
-                      Catatan kronologis immutable perubahan hak akses, pembuatan akun, dan reset PIN supervisor.
+                      Catatan kronologis riwayat perubahan hak akses, pembuatan akun staf, dan reset PIN otorisasi.
                     </p>
                   </div>
                 </div>
@@ -847,8 +855,8 @@ export default function UserManagementPage() {
                     >
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
-                          <span className="px-2 py-0.5 rounded-[6px] text-[10px] font-bold bg-neutral-200 dark:bg-neutral-700 text-[#1C1C1E] dark:text-white">
-                            {log.eventType}
+                          <span className="px-2 py-0.5 rounded-[6px] text-[10px] font-bold bg-neutral-200 dark:bg-neutral-700 text-[#1C1C1E] dark:text-white whitespace-nowrap shrink-0">
+                            {formatAuditEventType(log.eventType)}
                           </span>
                           <span className="font-semibold text-[#1C1C1E] dark:text-white">
                             {log.description}
@@ -859,7 +867,7 @@ export default function UserManagementPage() {
                         </p>
                       </div>
 
-                      <div className="text-[11px] text-[#8E8E93] shrink-0 font-mono">
+                      <div className="text-[11px] text-[#8E8E93] shrink-0 font-mono whitespace-nowrap">
                         {new Date(log.timestamp).toLocaleString("id-ID", {
                           dateStyle: "medium",
                           timeStyle: "short",
@@ -882,5 +890,13 @@ export default function UserManagementPage() {
         onSave={handleSaveUser}
       />
     </div>
+  );
+}
+
+export default function UserManagementPage() {
+  return (
+    <Suspense fallback={null}>
+      <UserManagementPageContent />
+    </Suspense>
   );
 }
